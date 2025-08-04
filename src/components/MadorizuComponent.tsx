@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 
 interface MadorizuComponentProps {
   imagePath: string;
-  title?: string;
+  onMarkersChange?: (markers: Marker[]) => void;
 }
 
 interface Marker {
@@ -11,10 +11,14 @@ interface Marker {
   y: number;
 }
 
-const MadorizuComponent: React.FC<MadorizuComponentProps> = ({ 
+export interface MadorizuComponentRef {
+  removeMarker: (markerId: number) => void;
+}
+
+const MadorizuComponent = forwardRef<MadorizuComponentRef, MadorizuComponentProps>(({ 
   imagePath, 
-  title = "間取り図" 
-}) => {
+  onMarkersChange
+}, ref) => {
   const [showPlusButton, setShowPlusButton] = useState(true);
   const [imageWidth, setImageWidth] = useState<number>(0);
   const [imageHeight, setImageHeight] = useState<number>(0);
@@ -26,6 +30,30 @@ const MadorizuComponent: React.FC<MadorizuComponentProps> = ({
   const [markers, setMarkers] = useState<Marker[]>([]);
   const imageRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // マーカーが変更された時に親コンポーネントに通知
+  useEffect(() => {
+    if (onMarkersChange) {
+      onMarkersChange(markers);
+    }
+  }, [markers, onMarkersChange]);
+
+  // 外部からマーカーを削除する関数
+  const removeMarker = (markerId: number) => {
+    setMarkers(prevMarkers => {
+      const filteredMarkers = prevMarkers.filter(marker => marker.id !== markerId);
+      // 番号を振り直す
+      return filteredMarkers.map((marker, index) => ({
+        ...marker,
+        id: index + 1
+      }));
+    });
+  };
+
+  // 親コンポーネントにremoveMarker関数を公開
+  useImperativeHandle(ref, () => ({
+    removeMarker
+  }));
 
   useEffect(() => {
     const img = imageRef.current;
@@ -156,7 +184,6 @@ const MadorizuComponent: React.FC<MadorizuComponentProps> = ({
 
   return (
     <div className="madorizu-container">
-      <h2>{title}</h2>
       <div 
         ref={containerRef}
         id="image-container" 
@@ -190,7 +217,6 @@ const MadorizuComponent: React.FC<MadorizuComponentProps> = ({
           <img 
             ref={imageRef}
             src={imagePath} 
-            alt={title} 
             style={{
               width: '100%',
               height: '100%',
@@ -249,47 +275,53 @@ const MadorizuComponent: React.FC<MadorizuComponentProps> = ({
             </div>
           ))}
         </div>
-      </div>
-      <div className="button-container" style={{
-        display: 'flex',
-        gap: '10px',
-        justifyContent: 'center',
-        marginTop: '15px'
-      }}>
-        {showPlusButton && (
-          <button 
-            onClick={handlePlusClick}
-            style={{
-              padding: '8px 16px',
-              fontSize: '16px',
-              fontWeight: 'bold',
-              backgroundColor: '#4CAF50',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            +
-          </button>
-        )}
-        {!showPlusButton && (
-          <button 
-            onClick={handleMinusClick}
-            style={{
-              padding: '8px 16px',
-              fontSize: '16px',
-              fontWeight: 'bold',
-              backgroundColor: '#f44336',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            -
-          </button>
-        )}
+        
+        {/* ボタンを右上に配置 */}
+        <div className="button-container" style={{
+          position: 'absolute',
+          top: '10px',
+          right: '10px',
+          display: 'flex',
+          gap: '5px',
+          zIndex: 20
+        }}>
+          {showPlusButton && (
+            <button 
+              onClick={handlePlusClick}
+              style={{
+                padding: '6px 12px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                backgroundColor: '#4CAF50',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}
+            >
+              +
+            </button>
+          )}
+          {!showPlusButton && (
+            <button 
+              onClick={handleMinusClick}
+              style={{
+                padding: '6px 12px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                backgroundColor: '#f44336',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}
+            >
+              -
+            </button>
+          )}
+        </div>
       </div>
       <div>
       {imageWidth > 0 && imageHeight > 0 && (
@@ -306,6 +338,6 @@ const MadorizuComponent: React.FC<MadorizuComponentProps> = ({
       </div>
     </div>
   );
-};
+});
 
 export default MadorizuComponent; 
