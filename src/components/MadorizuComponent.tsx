@@ -5,6 +5,12 @@ interface MadorizuComponentProps {
   title?: string;
 }
 
+interface Marker {
+  id: number;
+  x: number;
+  y: number;
+}
+
 const MadorizuComponent: React.FC<MadorizuComponentProps> = ({ 
   imagePath, 
   title = "間取り図" 
@@ -17,6 +23,7 @@ const MadorizuComponent: React.FC<MadorizuComponentProps> = ({
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [imagePosition, setImagePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const [markers, setMarkers] = useState<Marker[]>([]);
   const imageRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -107,6 +114,41 @@ const MadorizuComponent: React.FC<MadorizuComponentProps> = ({
     setIsDragging(false);
   };
 
+  const handleImageClick = (e: React.MouseEvent) => {
+    if (markers.length >= 20) return; // 最大20個まで
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    
+    // より簡単で正確なクリック位置計算
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+    // 有効な範囲内に制限
+    const clampedX = Math.max(0, Math.min(100, x));
+    const clampedY = Math.max(0, Math.min(100, y));
+
+    console.log('クリック位置:', {
+      clientX: e.clientX,
+      clientY: e.clientY,
+      rectLeft: rect.left,
+      rectTop: rect.top,
+      rectWidth: rect.width,
+      rectHeight: rect.height,
+      x,
+      y,
+      clampedX,
+      clampedY
+    });
+
+    const newMarker: Marker = {
+      id: markers.length + 1,
+      x: clampedX,
+      y: clampedY
+    };
+
+    setMarkers([...markers, newMarker]);
+  };
+
   // 画像のアスペクト比を計算
   const aspectRatio = imageWidth > 0 && imageHeight > 0 ? imageWidth / imageHeight : 1;
   const containerWidth = '100%';
@@ -126,33 +168,87 @@ const MadorizuComponent: React.FC<MadorizuComponentProps> = ({
           maxWidth: '100%',
           height: containerHeight,
           aspectRatio: imageWidth > 0 && imageHeight > 0 ? `${imageWidth} / ${imageHeight}` : 'auto',
-          cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'
+          cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'pointer'
         }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       >
-        <img 
-          ref={imageRef}
-          src={imagePath} 
-          alt={title} 
+        <div
           style={{
-            width: `${100 * zoomLevel}%`,
-            height: `${100 * zoomLevel}%`,
-            objectFit: 'cover',
-            border: '1px solid #ccc',
-            borderRadius: '8px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-            transition: zoomLevel === 1 ? 'width 0.3s ease, height 0.3s ease' : 'none',
             position: 'absolute',
             top: '50%',
             left: '50%',
             transform: `translate(-50%, -50%) translate(${imagePosition.x}px, ${imagePosition.y}px)`,
-            userSelect: 'none',
-            pointerEvents: 'none'
+            width: `${100 * zoomLevel}%`,
+            height: `${100 * zoomLevel}%`,
+            pointerEvents: 'auto'
           }}
-        />
+          onClick={handleImageClick}
+        >
+          <img 
+            ref={imageRef}
+            src={imagePath} 
+            alt={title} 
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              border: '1px solid #ccc',
+              borderRadius: '8px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              transition: zoomLevel === 1 ? 'width 0.3s ease, height 0.3s ease' : 'none',
+              userSelect: 'none',
+              pointerEvents: 'auto'
+            }}
+          />
+          
+          {/* マーカーを画像の上に表示 */}
+          {markers.map((marker) => (
+            <div
+              key={marker.id}
+              style={{
+                position: 'absolute',
+                left: `${marker.x}%`,
+                top: `${marker.y}%`,
+                transform: 'translate(-50%, -50%)',
+                width: '18px',
+                height: '18px',
+                pointerEvents: 'none',
+                zIndex: 10
+              }}
+            >
+              <img
+                src="/circle.png"
+                alt="marker"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0
+                }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  color: 'white',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  textShadow: '1px 1px 1px rgba(0,0,0,0.8)',
+                  lineHeight: '1',
+                  pointerEvents: 'none'
+                }}
+              >
+                {marker.id}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
       <div className="button-container" style={{
         display: 'flex',
@@ -203,7 +299,7 @@ const MadorizuComponent: React.FC<MadorizuComponentProps> = ({
             fontSize: '14px', 
             color: '#666' 
           }}>
-            画像サイズ: {imageWidth} × {imageHeight} ピクセル (ズーム: {zoomLevel}x)
+            画像サイズ: {imageWidth} × {imageHeight} ピクセル (ズーム: {zoomLevel}x) - マーカー: {markers.length}/20
           </p>
         )}
  
