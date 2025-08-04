@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } f
 
 interface MadorizuComponentProps {
   imagePath: string;
-  onMarkersChange?: (markers: Marker[]) => void;
+  markers: Marker[];
+  onMarkersChange: (markers: Marker[]) => void;
 }
 
-interface Marker {
+export interface Marker {
   id: number;
   x: number;
   y: number;
@@ -17,6 +18,7 @@ export interface MadorizuComponentRef {
 
 const MadorizuComponent = forwardRef<MadorizuComponentRef, MadorizuComponentProps>(({ 
   imagePath, 
+  markers,
   onMarkersChange
 }, ref) => {
   const [showPlusButton, setShowPlusButton] = useState(true);
@@ -27,27 +29,18 @@ const MadorizuComponent = forwardRef<MadorizuComponentRef, MadorizuComponentProp
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [imagePosition, setImagePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
-  const [markers, setMarkers] = useState<Marker[]>([]);
   const imageRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // マーカーが変更された時に親コンポーネントに通知
-  useEffect(() => {
-    if (onMarkersChange) {
-      onMarkersChange(markers);
-    }
-  }, [markers, onMarkersChange]);
-
   // 外部からマーカーを削除する関数
   const removeMarker = (markerId: number) => {
-    setMarkers(prevMarkers => {
-      const filteredMarkers = prevMarkers.filter(marker => marker.id !== markerId);
-      // 番号を振り直す
-      return filteredMarkers.map((marker, index) => ({
-        ...marker,
-        id: index + 1
-      }));
-    });
+    const filteredMarkers = markers.filter(marker => marker.id !== markerId);
+    // 番号を振り直す
+    const renumberedMarkers = filteredMarkers.map((marker, index) => ({
+      ...marker,
+      id: index + 1
+    }));
+    onMarkersChange(renumberedMarkers);
   };
 
   // 親コンポーネントにremoveMarker関数を公開
@@ -63,7 +56,7 @@ const MadorizuComponent = forwardRef<MadorizuComponentRef, MadorizuComponentProp
         const height = img.naturalHeight;
         setImageWidth(width);
         setImageHeight(height);
-        console.log('画像サイズ:', { width, height });
+        //console.log('画像サイズ:', { width, height });
       };
 
       if (img.complete) {
@@ -155,6 +148,7 @@ const MadorizuComponent = forwardRef<MadorizuComponentRef, MadorizuComponentProp
     const clampedX = Math.max(0, Math.min(100, x));
     const clampedY = Math.max(0, Math.min(100, y));
 
+    /*
     console.log('クリック位置:', {
       clientX: e.clientX,
       clientY: e.clientY,
@@ -167,6 +161,7 @@ const MadorizuComponent = forwardRef<MadorizuComponentRef, MadorizuComponentProp
       clampedX,
       clampedY
     });
+    */
 
     const newMarker: Marker = {
       id: markers.length + 1,
@@ -174,7 +169,8 @@ const MadorizuComponent = forwardRef<MadorizuComponentRef, MadorizuComponentProp
       y: clampedY
     };
 
-    setMarkers([...markers, newMarker]);
+    const updatedMarkers = [...markers, newMarker];
+    onMarkersChange(updatedMarkers);
   };
 
   // 画像のアスペクト比を計算
@@ -194,8 +190,8 @@ const MadorizuComponent = forwardRef<MadorizuComponentRef, MadorizuComponentProp
           width: containerWidth,
           maxWidth: '100%',
           height: containerHeight,
-          aspectRatio: imageWidth > 0 && imageHeight > 0 ? `${imageWidth} / ${imageHeight}` : 'auto',
-          cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'pointer'
+          aspectRatio: imageWidth > 0 && imageHeight > 0 ? `${imageWidth} / ${imageHeight}` : 'auto'
+          //cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'pointer'
         }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -296,7 +292,7 @@ const MadorizuComponent = forwardRef<MadorizuComponentRef, MadorizuComponentProp
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
-                cursor: 'pointer',
+                //cursor: 'pointer',
                 boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
               }}
             >
@@ -314,7 +310,7 @@ const MadorizuComponent = forwardRef<MadorizuComponentRef, MadorizuComponentProp
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
-                cursor: 'pointer',
+                //cursor: 'pointer',
                 boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
               }}
             >

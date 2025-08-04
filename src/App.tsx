@@ -1,17 +1,11 @@
-import { useState, useRef } from 'react'
-import './App.css'
-import MadorizuComponent from './components/MadorizuComponent'
-import type { MadorizuComponentRef } from './components/MadorizuComponent'
-
-interface Marker {
-  id: number;
-  x: number;
-  y: number;
-}
+import { useState, useRef } from 'react';
+import './App.css';
+import MadorizuComponent from './components/MadorizuComponent';
+import type { Marker, MadorizuComponentRef } from './components/MadorizuComponent';
 
 function App() {
-  const [markers, setMarkers] = useState<Marker[]>([])
-  const madorizuRef = useRef<MadorizuComponentRef>(null)
+  const [markers, setMarkers] = useState<Marker[]>([]);
+  const madorizuRef = useRef<MadorizuComponentRef>(null);
 
   const handleMarkersChange = (newMarkers: Marker[]) => {
     setMarkers(newMarkers);
@@ -30,6 +24,7 @@ function App() {
         <MadorizuComponent 
           ref={madorizuRef}
           imagePath="/madorizu.jpg" 
+          markers={markers}
           onMarkersChange={handleMarkersChange}
         />
       </div>
