@@ -29,6 +29,8 @@ const MadorizuComponent = forwardRef<MadorizuComponentRef, MadorizuComponentProp
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [imagePosition, setImagePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const [dragStartPosition, setDragStartPosition] = useState<{ x: number; y: number } | null>(null);
+  const [dragEndPosition, setDragEndPosition] = useState<{ x: number; y: number } | null>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -94,8 +96,11 @@ const MadorizuComponent = forwardRef<MadorizuComponentRef, MadorizuComponentProp
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
     if (zoomLevel > 1) {
       setIsDragging(true);
+      setDragStartPosition({ x: e.clientX, y: e.clientY });
+      setDragEndPosition(null);
       setDragOffset({
         x: e.clientX - imagePosition.x,
         y: e.clientY - imagePosition.y
@@ -104,7 +109,11 @@ const MadorizuComponent = forwardRef<MadorizuComponentRef, MadorizuComponentProp
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    e.preventDefault();
     if (isDragging && zoomLevel > 1) {
+      // ドラッグ中の位置を記録
+      setDragEndPosition({ x: e.clientX, y: e.clientY });
+      
       const newX = e.clientX - dragOffset.x;
       const newY = e.clientY - dragOffset.y;
       
@@ -131,11 +140,33 @@ const MadorizuComponent = forwardRef<MadorizuComponentRef, MadorizuComponentProp
     }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (isDragging) {
+      // ドラッグ終了位置を記録
+      setDragEndPosition({ x: e.clientX, y: e.clientY });
+    }
     setIsDragging(false);
   };
 
   const handleImageClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    // ドラッグが発生していた場合の座標差をチェック
+    if (dragStartPosition && dragEndPosition) {
+      const deltaX = Math.abs(dragEndPosition.x - dragStartPosition.x);
+      const deltaY = Math.abs(dragEndPosition.y - dragStartPosition.y);
+      
+      // X座標またはY座標の差が10px以上の場合はマーカーを追加しない
+      if (deltaX >= 10 || deltaY >= 10) {
+        // ドラッグ状態をリセット
+        setDragStartPosition(null);
+        setDragEndPosition(null);
+        return; // マーカーを追加しない
+      }
+    }
+    
+    // マーカーを追加
     if (markers.length >= 20) return; // 最大20個まで
 
     const rect = e.currentTarget.getBoundingClientRect();
@@ -148,21 +179,6 @@ const MadorizuComponent = forwardRef<MadorizuComponentRef, MadorizuComponentProp
     const clampedX = Math.max(0, Math.min(100, x));
     const clampedY = Math.max(0, Math.min(100, y));
 
-    /*
-    console.log('クリック位置:', {
-      clientX: e.clientX,
-      clientY: e.clientY,
-      rectLeft: rect.left,
-      rectTop: rect.top,
-      rectWidth: rect.width,
-      rectHeight: rect.height,
-      x,
-      y,
-      clampedX,
-      clampedY
-    });
-    */
-
     const newMarker: Marker = {
       id: markers.length + 1,
       x: clampedX,
@@ -171,6 +187,10 @@ const MadorizuComponent = forwardRef<MadorizuComponentRef, MadorizuComponentProp
 
     const updatedMarkers = [...markers, newMarker];
     onMarkersChange(updatedMarkers);
+    
+    // ドラッグ状態をリセット
+    setDragStartPosition(null);
+    setDragEndPosition(null);
   };
 
   // 画像のアスペクト比を計算
