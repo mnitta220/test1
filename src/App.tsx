@@ -1,11 +1,37 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import './App.css';
 import MadorizuComponent from './components/MadorizuComponent';
 import type { Marker, MadorizuComponentRef } from './components/MadorizuComponent';
 
 function App() {
   const [markers, setMarkers] = useState<Marker[]>([]);
+  const [imageData, setImageData] = useState<string>('');
   const madorizuRef = useRef<MadorizuComponentRef>(null);
+
+  // 画像ファイルをbase64エンコードする
+  useEffect(() => {
+    const loadImageAsBase64 = async () => {
+      try {
+        const response = await fetch('/madorizu.jpg');
+        const blob = await response.blob();
+        
+        return new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            resolve(reader.result as string);
+          };
+          reader.readAsDataURL(blob);
+        });
+      } catch (error) {
+        console.error('画像の読み込みに失敗しました:', error);
+        return '';
+      }
+    };
+
+    loadImageAsBase64().then(base64Data => {
+      setImageData(base64Data);
+    });
+  }, []);
 
   const handleMarkersChange = (newMarkers: Marker[]) => {
     setMarkers(newMarkers);
@@ -23,7 +49,7 @@ function App() {
       <div className="card">
         <MadorizuComponent 
           ref={madorizuRef}
-          imagePath="/madorizu.jpg" 
+          imageData={imageData}
           markers={markers}
           onMarkersChange={handleMarkersChange}
         />

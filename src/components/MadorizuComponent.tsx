@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 
 interface MadorizuComponentProps {
-  imagePath: string;
+  imageData: string; // base64エンコードされた画像データ
   markers: Marker[];
   onMarkersChange: (markers: Marker[]) => void;
 }
@@ -17,7 +17,7 @@ export interface MadorizuComponentRef {
 }
 
 const MadorizuComponent = forwardRef<MadorizuComponentRef, MadorizuComponentProps>(({ 
-  imagePath, 
+  imageData, 
   markers,
   onMarkersChange
 }, ref) => {
@@ -68,7 +68,7 @@ const MadorizuComponent = forwardRef<MadorizuComponentRef, MadorizuComponentProp
         return () => img.removeEventListener('load', handleLoad);
       }
     }
-  }, [imagePath]);
+  }, [imageData]);
 
   useEffect(() => {
     const updateContainerSize = () => {
@@ -232,7 +232,7 @@ const MadorizuComponent = forwardRef<MadorizuComponentRef, MadorizuComponentProp
         >
           <img 
             ref={imageRef}
-            src={imagePath} 
+            src={imageData} 
             style={{
               width: '100%',
               height: '100%',
