@@ -1,7 +1,6 @@
 #root {
   max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
+  margin: 0;
   text-align: center;
 }
 
@@ -33,16 +32,17 @@
   }
 }
 
+/*
 .card {
-  padding: 2em;
   width: 500px;
+  max-width: 80%;
   border: 1px solid #e66363;
   border-radius: 10px;
   box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
-  margin: 20px;
   display: flex;
   flex-direction: column;
 }
+*/
 
 .read-the-docs {
   color: #888;

@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
+import { Routes, Route, useNavigate } from "react-router-dom";
 import "./App.css";
 import MadorizuComponent from "./components/MadorizuComponent";
+import CreateInspectionCheckMp from "./myp/myp002/pages/CreateInspectionCheckMp/CreateInspectionCheckMp";
 import type {
   Marker,
   MadorizuComponentRef,
@@ -10,6 +12,7 @@ function App() {
   const [markers, setMarkers] = useState<Marker[]>([]);
   const [imageData, setImageData] = useState<string>("");
   const madorizuRef = useRef<MadorizuComponentRef>(null);
+  const navigate = useNavigate();
 
   // 画像ファイルをbase64エンコードする
   useEffect(() => {
@@ -48,69 +51,84 @@ function App() {
 
   return (
     <>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <MadorizuComponent
-          ref={madorizuRef}
-          imageData={imageData}
-          markers={markers}
-          onMarkersChange={handleMarkersChange}
-        />
-      </div>
-
-      {/* マーカー一覧を表示 */}
-      {markers.length > 0 && (
-        <div className="card">
-          <h3>マーカー一覧</h3>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-              gap: "10px",
-              marginTop: "10px",
-            }}
-          >
-            {markers.map((marker) => (
-              <div
-                key={marker.id}
-                style={{
-                  padding: "8px",
-                  border: "1px solid #ccc",
-                  borderRadius: "4px",
-                  backgroundColor: "#f9f9f9",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div>
-                  <strong>マーカー {marker.id}</strong>
-                  <br />
-                  座標: ({marker.x.toFixed(1)}%, {marker.y.toFixed(1)}%)
-                </div>
-                <button
-                  onClick={() => handleRemoveMarker(marker.id)}
-                  style={{
-                    backgroundColor: "#f44336",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    padding: "4px 8px",
-                    cursor: "pointer",
-                    fontSize: "12px",
-                  }}
-                >
-                  削除
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <>
+              <h1>Vite + React</h1>
+              <div className="card">
+                <button onClick={() => navigate("/create-inspection-check")}>
+                  間取り図
                 </button>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+              <div className="card">
+                <MadorizuComponent
+                  ref={madorizuRef}
+                  imageData={imageData}
+                  markers={markers}
+                  onMarkersChange={handleMarkersChange}
+                />
+              </div>
 
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+              {/* マーカー一覧を表示 */}
+              {markers.length > 0 && (
+                <div className="card">
+                  <h3>マーカー一覧</h3>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                      gap: "10px",
+                      marginTop: "10px",
+                    }}
+                  >
+                    {markers.map((marker) => (
+                      <div
+                        key={marker.id}
+                        style={{
+                          padding: "8px",
+                          border: "1px solid #ccc",
+                          borderRadius: "4px",
+                          backgroundColor: "#f9f9f9",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}
+                      >
+                        <div>
+                          <strong>マーカー {marker.id}</strong>
+                          <br />
+                          座標: ({marker.x.toFixed(1)}%, {marker.y.toFixed(1)}%)
+                        </div>
+                        <button
+                          onClick={() => handleRemoveMarker(marker.id)}
+                          style={{
+                            backgroundColor: "#f44336",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "4px",
+                            padding: "4px 8px",
+                            cursor: "pointer",
+                            fontSize: "12px",
+                          }}
+                        >
+                          削除
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <p className="read-the-docs">
+                Click on the Vite and React logos to learn more
+              </p>
+            </>
+          }
+        />
+        <Route path="/create-inspection-check" element={<CreateInspectionCheckMp />} />
+      </Routes>
     </>
   );
 }
