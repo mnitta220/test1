@@ -47,3 +47,13 @@
 .read-the-docs {
   color: #888;
 }
+
+.inspection {
+  width: 400px;
+  max-width: 80%;
+  border: 1px solid #e66363;
+  box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
+  margin: 20px;
+  display: flex;
+  flex-direction: column;
+}
