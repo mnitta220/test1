@@ -65,7 +65,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     // 外部からマーカーを削除する関数
     const removeMarker = (markerId: number) => {
       const filteredMarkers = markers.filter(
-        (marker) => marker.id !== markerId
+        (marker) => marker.id !== markerId,
       );
       // 番号を振り直す
       const renumberedMarkers = filteredMarkers.map((marker, index) => ({
@@ -146,7 +146,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       const clampedX = Math.max(-maxOffsetX, Math.min(maxOffsetX, newX));
       const clampedY = Math.max(
         -adjustedMaxOffsetY,
-        Math.min(adjustedMaxOffsetY, newY)
+        Math.min(adjustedMaxOffsetY, newY),
       );
       setImagePosition({ x: clampedX, y: clampedY });
     };
@@ -328,7 +328,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
               className="zoom-button"
               onClick={handlePlusClick}
             >
-              <img src="/images/zoomIn.svg" alt="ズームイン" />
+              <img src="images/zoomIn.svg" alt="ズームイン" />
             </button>
           )}
           {!showPlusButton && (
@@ -337,14 +337,14 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
               className="zoom-button"
               onClick={handleMinusClick}
             >
-              <img src="/images/zoomOut.svg" alt="ズームアウト" />
+              <img src="images/zoomOut.svg" alt="ズームアウト" />
             </button>
           )}
         </div>
       </div>
     );
     /* c8 ignore stop */
-  }
+  },
 );
 
 export default Madorizu;
