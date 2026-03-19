@@ -156,23 +156,32 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     };
     // Mouse イベント（markuplint の invalid-attr 回避: onTouch*/onPointer* 非使用）
     const handleMouseDown = (e: React.MouseEvent) => {
+      console.log("handleMouseDown");
+      e.preventDefault();
       if (zoomLevel > 1) {
         beginDrag(e.clientX, e.clientY);
       }
     };
     const handleMouseMove = (e: React.MouseEvent) => {
+      //console.log("handleMouseMove");
+      e.preventDefault();
       if (isDragging && zoomLevel > 1) {
-        e.preventDefault();
         updateDrag(e.clientX, e.clientY);
       }
     };
     const handleMouseUp = (e: React.MouseEvent) => {
+      console.log("handleMouseUp");
+      e.preventDefault();
       if (isDragging) {
         endDrag(e.clientX, e.clientY);
       }
     };
 
     const handleTouchStart = (e: React.TouchEvent) => {
+      console.log("handleTouchStart");
+      if (e.cancelable) {
+        e.preventDefault();
+      }
       if (zoomLevel > 1) {
         const touch = e.touches[0];
         if (!touch) return;
@@ -181,7 +190,10 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     };
 
     const handleTouchMove = (e: React.TouchEvent) => {
-      e.preventDefault();
+      console.log("handleTouchMove");
+      if (e.cancelable) {
+        e.preventDefault();
+      }
       if (isDragging && zoomLevel > 1) {
         const touch = e.touches[0];
         if (!touch) return;
@@ -190,6 +202,10 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     };
 
     const handleTouchEnd = (e: React.TouchEvent) => {
+      console.log("handleTouchEnd");
+      if (e.cancelable) {
+        e.preventDefault();
+      }
       if (isDragging) {
         const touch = e.changedTouches[0];
         if (touch) {
@@ -201,6 +217,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     };
 
     const handleImageClick = (e: React.MouseEvent) => {
+      console.log("handleImageClick");
       e.preventDefault();
 
       // 追加条件1: 既に最大数の場合は親ハンドラに委譲（警告表示等）

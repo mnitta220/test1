@@ -69,7 +69,7 @@ function App() {
 
   return (
     <>
-      <div>Hello</div>
+      <h3>間取り図</h3>
       <div className="inspection">
         <Madorizu
           isMarkable={true}
