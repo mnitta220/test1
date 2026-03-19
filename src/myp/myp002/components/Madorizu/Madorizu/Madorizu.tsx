@@ -33,7 +33,7 @@ export interface MadorizuRef {
 /* c8 ignore stop */
 
 const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
-  ({ isMarkable, imageData, markers, onMarkersChange, onImageClick }, ref) => {
+  ({ isMarkable, imageData, markers, onMarkersChange }, ref) => {
     const [showPlusButton, setShowPlusButton] = useState(true);
     const [imageWidth, setImageWidth] = useState(0);
     const [imageHeight, setImageHeight] = useState(0);
@@ -54,12 +54,18 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       width: number;
       height: number;
     }>({ width: 0, height: 0 });
-    const [containerRect, setContainerRect] = useState<DOMRect | null>(null);
-    const [dragStartPosition, setDragStartPosition] = useState<{
+    //const [containerRect, setContainerRect] = useState<DOMRect | null>(null);
+    const [, setDragStartPosition] = useState<{
       x: number;
       y: number;
     } | null>(null);
-    const [dragEndPosition, setDragEndPosition] = useState<{
+    // native の addEventListener から呼ばれる関数は state が stale になりやすいので、
+    // dragStartPosition を ref でも保持して参照元を ref.current に揃える
+    const dragStartPositionRef = useRef<{
+      x: number;
+      y: number;
+    } | null>(null);
+    const [, setDragEndPosition] = useState<{
       x: number;
       y: number;
     } | null>(null);
@@ -105,11 +111,16 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     /* c8 ignore start - リサイズの副作用もUI配線として除外 */
     useEffect(() => {
       const updateContainerSize = () => {
+        console.log("updateContainerSize: 1");
         const el = document.getElementById(CONTAINER_ID);
         if (!el) return;
+        console.log("updateContainerSize: 2");
         const rect = el.getBoundingClientRect();
         setContainerSize({ width: rect.width, height: rect.height });
-        setContainerRect(rect);
+        console.log(
+          `updateContainerSize: 3 width: ${rect.width} height: ${rect.height}`,
+        );
+        //setContainerRect(rect);
       };
       updateContainerSize();
       window.addEventListener("resize", updateContainerSize);
@@ -162,11 +173,13 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       // passive 制約に備えてキャンセル可能なときだけ抑止する
       if (e.cancelable) {
         e.preventDefault();
-        console.log("onTouchMove: cancelable");
       }
-      const touch = e.changedTouches[0];
-      if (touch) {
-        console.log("onTouchMove: " + touch.pageX);
+
+      const touch = e.touches[0];
+      if (!touch) return;
+
+      if (isDragging && zoomLevel > 1) {
+        updateDrag(touch.clientX, touch.clientY);
       }
     };
 
@@ -208,7 +221,9 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     const beginDrag = (clientX: number, clientY: number) => {
       console.log("beginDrag: " + clientX + ", " + clientY);
       setIsDragging(true);
-      setDragStartPosition({ x: clientX, y: clientY });
+      const nextStart = { x: clientX, y: clientY };
+      setDragStartPosition(nextStart);
+      dragStartPositionRef.current = nextStart;
       setDragEndPosition(null);
       setDragOffset({
         x: clientX - imagePosition.x,
@@ -238,20 +253,24 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       console.log("endDrag: " + clientX + ", " + clientY);
       setDragEndPosition({ x: clientX, y: clientY });
       setIsDragging(false);
-      //imageClick(clientX, clientY);
+      imageClick(clientX, clientY);
       //setTimeout(() => {
       //  dragEnd();
       //}, 1000);
-      if (!dragStartPosition) {
+      /*
+      const startPos = dragStartPositionRef.current;
+      if (!startPos) {
         console.log("endDrag: no dragStartPosition");
         return;
       }
       console.log(
         "endDrag: dragStartPosition: " +
-          dragStartPosition.x +
+          startPos.x +
           ", " +
-          dragStartPosition.y,
+          startPos.y,
       );
+      imageClick(clientX, clientY);
+      */
     };
 
     /*
@@ -363,34 +382,53 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
 
     const imageClick = (clientX: number, clientY: number) => {
       console.log("imageClick: " + clientX + ", " + clientY);
-      if (!dragStartPosition) {
+      const startPos = dragStartPositionRef.current;
+      if (!startPos) {
         console.log("imageClick: no dragStartPosition");
         return;
       }
       console.log(
-        "imageClick: dragStartPosition: " +
-          dragStartPosition.x +
-          ", " +
-          dragStartPosition.y,
+        "imageClick: dragStartPosition: " + startPos.x + ", " + startPos.y,
       );
-      const deltaX = Math.abs(clientX - dragStartPosition.x);
-      const deltaY = Math.abs(clientY - dragStartPosition.y);
+      const deltaX = Math.abs(clientX - startPos.x);
+      const deltaY = Math.abs(clientY - startPos.y);
 
       // X座標またはY座標の差が10px以上の場合はマーカーを追加しない
       if (deltaX >= 10 || deltaY >= 10) {
         // ドラッグ状態をリセット
         console.log("imageClick: reset dragStartPosition1");
         setDragStartPosition(null);
+        dragStartPositionRef.current = null;
         setDragEndPosition(null);
         return; // マーカーを追加しない
       }
 
+      console.log("imageClick: markers.length: " + markers.length);
       // 追加条件1: 既に最大数の場合は親ハンドラに委譲（警告表示等）
+      const containerRect = divRef.current?.getBoundingClientRect();
       if (markers.length >= 20 || !isMarkable || !containerRect) {
         //if (onImageClick) onImageClick(e);
+        console.log(
+          `imageClick: return 1 markers.length: ${markers.length} isMarkable: ${isMarkable} containerRect: ${containerRect}`,
+        );
+        setDragStartPosition(null);
+        dragStartPositionRef.current = null;
+        setDragEndPosition(null);
         return;
       }
 
+      /*
+      console.log(
+        "imageClick: containerRect: " +
+          containerRect.left +
+          ", " +
+          containerRect.width +
+          ", " +
+          containerRect.top +
+          ", " +
+          containerRect.height,
+      );
+      */
       const x = ((clientX - containerRect.left) / containerRect.width) * 100;
       const y = ((clientY - containerRect.top) / containerRect.height) * 100;
       console.log("imageClick: x: " + x + ", y: " + y);
@@ -410,64 +448,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       // ドラッグ状態をリセット
       console.log("imageClick: reset dragStartPosition2");
       setDragStartPosition(null);
-      setDragEndPosition(null);
-    };
-
-    const handleImageClick = (e: React.MouseEvent) => {
-      console.log("handleImageClick");
-      e.preventDefault();
-
-      // 追加条件1: 既に最大数の場合は親ハンドラに委譲（警告表示等）
-      if (markers.length >= 20) {
-        if (onImageClick) onImageClick(e);
-        return;
-      }
-
-      // 追加条件2: 入力未保存などで親側が追加を許可しない(isMarkable=false)場合は親に通知して削除処理などを実行させる
-      if (!isMarkable) {
-        if (onImageClick) onImageClick(e);
-        return;
-      }
-
-      // ドラッグが発生していた場合の座標差をチェック
-      if (dragStartPosition && dragEndPosition) {
-        const deltaX = Math.abs(dragEndPosition.x - dragStartPosition.x);
-        const deltaY = Math.abs(dragEndPosition.y - dragStartPosition.y);
-
-        // X座標またはY座標の差が10px以上の場合はマーカーを追加しない
-        if (deltaX >= 10 || deltaY >= 10) {
-          // ドラッグ状態をリセット
-          console.log("handleImageClick: reset dragStartPosition3");
-          setDragStartPosition(null);
-          setDragEndPosition(null);
-          return; // マーカーを追加しない
-        }
-      }
-
-      // マーカーを追加（上部のガードで既に 20 件上限はチェック済みのためここでの再チェックは不要）
-
-      const rect = e.currentTarget.getBoundingClientRect();
-
-      // より簡単で正確なクリック位置計算
-      const x = ((e.clientX - rect.left) / rect.width) * 100;
-      const y = ((e.clientY - rect.top) / rect.height) * 100;
-
-      // 有効な範囲内に制限
-      const clampedX = Math.max(0, Math.min(100, x));
-      const clampedY = Math.max(0, Math.min(100, y));
-
-      const newMarker: MarkerInfo = {
-        id: markers.length + 1,
-        x: clampedX,
-        y: clampedY,
-      };
-
-      const updatedMarkers = [...markers, newMarker];
-      onMarkersChange(updatedMarkers);
-
-      // ドラッグ状態をリセット
-      console.log("handleImageClick: reset dragStartPosition4");
-      setDragStartPosition(null);
+      dragStartPositionRef.current = null;
       setDragEndPosition(null);
     };
 
