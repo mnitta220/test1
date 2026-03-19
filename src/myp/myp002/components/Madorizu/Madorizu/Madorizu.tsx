@@ -328,7 +328,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
               className="zoom-button"
               onClick={handlePlusClick}
             >
-              <img src="images/zoomIn.svg" alt="ズームイン" />
+              <img src="zoomIn.svg" alt="ズームイン" />
             </button>
           )}
           {!showPlusButton && (
@@ -337,7 +337,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
               className="zoom-button"
               onClick={handleMinusClick}
             >
-              <img src="images/zoomOut.svg" alt="ズームアウト" />
+              <img src="zoomOut.svg" alt="ズームアウト" />
             </button>
           )}
         </div>
