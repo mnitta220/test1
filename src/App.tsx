@@ -53,12 +53,12 @@ function App() {
     <>
       <Routes>
         <Route
-          path="/"
+          path=""
           element={
             <>
               <h1>Vite + React</h1>
               <div className="card">
-                <button onClick={() => navigate("/create-inspection-check")}>
+                <button onClick={() => navigate("create-inspection-check")}>
                   間取り図
                 </button>
               </div>
@@ -78,7 +78,8 @@ function App() {
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                      gridTemplateColumns:
+                        "repeat(auto-fit, minmax(200px, 1fr))",
                       gap: "10px",
                       marginTop: "10px",
                     }}
@@ -127,7 +128,10 @@ function App() {
             </>
           }
         />
-        <Route path="/create-inspection-check" element={<CreateInspectionCheckMp />} />
+        <Route
+          path="create-inspection-check"
+          element={<CreateInspectionCheckMp />}
+        />
       </Routes>
     </>
   );
