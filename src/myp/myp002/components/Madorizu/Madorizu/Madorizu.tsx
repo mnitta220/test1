@@ -13,6 +13,7 @@ interface MadorizuProps {
   isMarkable: boolean;
   imageData: string; // base64エンコードされた画像データ
   markers: MarkerInfo[];
+  onMarkerAdd: (x: number, y: number) => void;
   onMarkersChange: (markers: MarkerInfo[]) => void;
   // 親での追加制御や削除誘発のため、画像以外の要素クリックを受け取れるよう汎用化
   onImageClick?: (event: React.MouseEvent) => void;
@@ -28,12 +29,13 @@ export interface MarkerInfo {
 }
 
 export interface MadorizuRef {
+  addMarker: (x: number, y: number) => void;
   removeMarker: (markerId: number) => void;
 }
 /* c8 ignore stop */
 
 const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
-  ({ isMarkable, imageData, markers, onMarkersChange }, ref) => {
+  ({ isMarkable, imageData, markers, onMarkerAdd, onMarkersChange }, ref) => {
     const [showPlusButton, setShowPlusButton] = useState(true);
     const [imageWidth, setImageWidth] = useState(0);
     const [imageHeight, setImageHeight] = useState(0);
@@ -41,7 +43,23 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     const plusButtonRef = useRef<HTMLButtonElement | null>(null);
     const minusButtonRef = useRef<HTMLButtonElement | null>(null);
     const [zoomLevel, setZoomLevel] = useState(1);
-    const [isDragging, setIsDragging] = useState(false);
+    // zoomLevel も native リスナーからは stale になるため、最新値を ref に同期する
+    const imageWidthRef = useRef(imageWidth);
+    const imageHeightRef = useRef(imageHeight);
+    useEffect(() => {
+      imageWidthRef.current = imageWidth;
+    }, [imageWidth]);
+    useEffect(() => {
+      imageHeightRef.current = imageHeight;
+    }, [imageHeight]);
+    const zoomLevelRef = useRef(zoomLevel);
+    useEffect(() => {
+      zoomLevelRef.current = zoomLevel;
+    }, [zoomLevel]);
+    // isDragging は UI 用の state。native addEventListener からは stale になるため
+    // 同一値を isDraggingRef にも保持し、touchmove 等は ref を参照する。
+    const [, setIsDragging] = useState(false);
+    const isDraggingRef = useRef(false);
     const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({
       x: 0,
       y: 0,
@@ -54,6 +72,10 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       width: number;
       height: number;
     }>({ width: 0, height: 0 });
+    const containerSizeRef = useRef(containerSize);
+    useEffect(() => {
+      containerSizeRef.current = containerSize;
+    }, [containerSize]);
     //const [containerRect, setContainerRect] = useState<DOMRect | null>(null);
     const [, setDragStartPosition] = useState<{
       x: number;
@@ -73,6 +95,20 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     const CONTAINER_ID = "madorizu-container-root";
     const IMAGE_ID = "madorizu-image";
 
+    // 外部からマーカーを追加する関数
+    const addMarker = (x: number, y: number) => {
+      //console.log(`addMarker: x: ${x}, y: ${y}`);
+      /*
+      const newMarker: MarkerInfo = {
+        id: markers.length + 1,
+        x: x,
+        y: y,
+      };
+      const updatedMarkers = [...markers, newMarker];
+      */
+      onMarkerAdd(x, y);
+    };
+
     // 外部からマーカーを削除する関数
     const removeMarker = (markerId: number) => {
       const filteredMarkers = markers.filter(
@@ -88,6 +124,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
 
     // 親コンポーネントにremoveMarker関数を公開
     useImperativeHandle(ref, () => ({
+      addMarker,
       removeMarker,
     }));
 
@@ -96,6 +133,9 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       const img = document.getElementById(IMAGE_ID) as HTMLImageElement | null;
       if (!img) return;
       const handleLoad = () => {
+        //console.log(
+        //  "handleLoad: " + img.naturalWidth + ", " + img.naturalHeight,
+        //);
         setImageWidth(img.naturalWidth);
         setImageHeight(img.naturalHeight);
       };
@@ -111,15 +151,15 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     /* c8 ignore start - リサイズの副作用もUI配線として除外 */
     useEffect(() => {
       const updateContainerSize = () => {
-        console.log("updateContainerSize: 1");
+        //console.log("updateContainerSize: 1");
         const el = document.getElementById(CONTAINER_ID);
         if (!el) return;
-        console.log("updateContainerSize: 2");
+        //console.log("updateContainerSize: 2");
         const rect = el.getBoundingClientRect();
         setContainerSize({ width: rect.width, height: rect.height });
-        console.log(
-          `updateContainerSize: 3 width: ${rect.width} height: ${rect.height}`,
-        );
+        //console.log(
+        //  `updateContainerSize: 3 width: ${rect.width} height: ${rect.height}`,
+        //);
         //setContainerRect(rect);
       };
       updateContainerSize();
@@ -132,13 +172,13 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       const el = divRef.current;
       if (!el) return;
 
-      console.log("useEffect: " + el.id);
+      //console.log("useEffect: " + el.id);
       el.addEventListener("touchstart", handleTouchStart, { passive: false });
-      el.addEventListener("touchmove", onTouchMove, { passive: false });
+      el.addEventListener("touchmove", handleTouchMove, { passive: false });
       el.addEventListener("touchend", handleTouchEnd, { passive: false });
       return () => {
         el.removeEventListener("touchstart", handleTouchStart);
-        el.removeEventListener("touchmove", onTouchMove);
+        el.removeEventListener("touchmove", handleTouchMove);
         el.removeEventListener("touchend", handleTouchEnd);
       };
     }, []);
@@ -169,49 +209,37 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       };
     }, []);
 
-    const onTouchMove = (e: TouchEvent) => {
-      // passive 制約に備えてキャンセル可能なときだけ抑止する
-      if (e.cancelable) {
-        e.preventDefault();
-      }
-
-      const touch = e.touches[0];
-      if (!touch) return;
-
-      if (isDragging && zoomLevel > 1) {
-        updateDrag(touch.clientX, touch.clientY);
-      }
-    };
-
     const handlePlusTouchStart = (e: TouchEvent) => {
-      console.log("handlePlusTouchStart: ");
+      //console.log("handlePlusTouchStart: ");
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
       setShowPlusButton(false);
+      zoomLevelRef.current = 2;
       setZoomLevel(2);
       setImagePosition({ x: 0, y: 0 }); // ズーム時に位置をリセット
     };
 
     const handlePlusTouchEnd = (e: TouchEvent) => {
-      console.log("handlePlusTouchEnd: ");
+      //console.log("handlePlusTouchEnd: ");
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
     };
 
     const handleMinusTouchStart = (e: TouchEvent) => {
-      console.log("handleMinusTouchStart: ");
+      //console.log("handleMinusTouchStart: ");
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
       setShowPlusButton(true);
+      zoomLevelRef.current = 1;
       setZoomLevel(1);
       setImagePosition({ x: 0, y: 0 }); // ズームアウト時に位置をリセット
     };
 
     const handleMinusTouchEnd = (e: TouchEvent) => {
-      console.log("handleMinusTouchEnd: ");
+      //console.log("handleMinusTouchEnd: ");
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
@@ -219,7 +247,8 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
 
     // Pointer イベントに統合（mouse/touch 両対応）
     const beginDrag = (clientX: number, clientY: number) => {
-      console.log("beginDrag: " + clientX + ", " + clientY);
+      //console.log("beginDrag: " + clientX + ", " + clientY);
+      isDraggingRef.current = true;
       setIsDragging(true);
       const nextStart = { x: clientX, y: clientY };
       setDragStartPosition(nextStart);
@@ -232,13 +261,36 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     };
 
     const updateDrag = (clientX: number, clientY: number) => {
+      /*
+      console.log(
+        "updateDrag: " +
+          clientX +
+          ", " +
+          clientY +
+          ", dragOffset: " +
+          dragOffset.x +
+          ", " +
+          dragOffset.y +
+          ", containerSize: " +
+          containerSizeRef.current.width +
+          ", " +
+          containerSizeRef.current.height,
+      );
+      */
       setDragEndPosition({ x: clientX, y: clientY });
       const newX = clientX - dragOffset.x;
       const newY = clientY - dragOffset.y;
-      const maxOffsetX = (containerSize.width * (zoomLevel - 1)) / 2;
-      const maxOffsetY = (containerSize.height * (zoomLevel - 1)) / 2;
-      const imageAspectRatio = imageWidth / imageHeight;
-      const containerAspectRatio = containerSize.width / containerSize.height;
+      const zl = zoomLevelRef.current;
+      const maxOffsetX = (containerSizeRef.current.width * (zl - 1)) / 2;
+      const maxOffsetY = (containerSizeRef.current.height * (zl - 1)) / 2;
+      /*
+      console.log(
+        `imageWidth: ${imageWidthRef.current} imageHeight: ${imageHeightRef.current}`,
+      );
+      */
+      const imageAspectRatio = imageWidthRef.current / imageHeightRef.current;
+      const containerAspectRatio =
+        containerSizeRef.current.width / containerSizeRef.current.height;
       const adjustedMaxOffsetY =
         (maxOffsetY * containerAspectRatio) / imageAspectRatio;
       const clampedX = Math.max(-maxOffsetX, Math.min(maxOffsetX, newX));
@@ -246,12 +298,16 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         -adjustedMaxOffsetY,
         Math.min(adjustedMaxOffsetY, newY),
       );
+      //console.log(
+      //  "updateDrag: clampedX: " + clampedX + ", clampedY: " + clampedY,
+      //);
       setImagePosition({ x: clampedX, y: clampedY });
     };
 
     const endDrag = (clientX: number, clientY: number) => {
-      console.log("endDrag: " + clientX + ", " + clientY);
+      //console.log("endDrag: " + clientX + ", " + clientY);
       setDragEndPosition({ x: clientX, y: clientY });
+      isDraggingRef.current = false;
       setIsDragging(false);
       imageClick(clientX, clientY);
       //setTimeout(() => {
@@ -317,11 +373,11 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       // passive 制約に備えてキャンセル可能なときだけ抑止する
       if (e.cancelable) {
         e.preventDefault();
-        console.log("onTouchStart: cancelable");
+        //console.log("onTouchStart: cancelable");
       }
       const touch = e.touches[0];
       if (touch) {
-        console.log("handleTouchStart: " + touch.clientX);
+        //console.log("handleTouchStart: " + touch.clientX);
         beginDrag(touch.clientX, touch.clientY);
       }
     };
@@ -337,7 +393,22 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         beginDrag(touch.clientX, touch.clientY);
       }
     };
+    */
 
+    const handleTouchMove = (e: TouchEvent) => {
+      // passive 制約に備えてキャンセル可能なときだけ抑止する
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+
+      const touch = e.touches[0];
+      if (!touch) return;
+
+      if (isDraggingRef.current && zoomLevelRef.current > 1) {
+        updateDrag(touch.clientX, touch.clientY);
+      }
+    };
+    /*
     const handleTouchMove = (e: React.TouchEvent) => {
       console.log("handleTouchMove");
       if (e.cancelable) {
@@ -355,11 +426,11 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       // passive 制約に備えてキャンセル可能なときだけ抑止する
       if (e.cancelable) {
         e.preventDefault();
-        console.log("onTouchEnd: cancelable");
+        //console.log("onTouchEnd: cancelable");
       }
       const touch = e.changedTouches[0];
       if (touch) {
-        console.log("handleTouchEnd: " + touch.clientX);
+        //console.log("handleTouchEnd: " + touch.clientX);
         endDrag(touch.clientX, touch.clientY);
       }
     };
@@ -381,36 +452,36 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     */
 
     const imageClick = (clientX: number, clientY: number) => {
-      console.log("imageClick: " + clientX + ", " + clientY);
+      //console.log("imageClick: " + clientX + ", " + clientY);
       const startPos = dragStartPositionRef.current;
       if (!startPos) {
-        console.log("imageClick: no dragStartPosition");
+        //console.log("imageClick: no dragStartPosition");
         return;
       }
-      console.log(
-        "imageClick: dragStartPosition: " + startPos.x + ", " + startPos.y,
-      );
+      //console.log(
+      //  "imageClick: dragStartPosition: " + startPos.x + ", " + startPos.y,
+      //);
       const deltaX = Math.abs(clientX - startPos.x);
       const deltaY = Math.abs(clientY - startPos.y);
 
       // X座標またはY座標の差が10px以上の場合はマーカーを追加しない
       if (deltaX >= 10 || deltaY >= 10) {
         // ドラッグ状態をリセット
-        console.log("imageClick: reset dragStartPosition1");
+        //console.log("imageClick: reset dragStartPosition1");
         setDragStartPosition(null);
         dragStartPositionRef.current = null;
         setDragEndPosition(null);
         return; // マーカーを追加しない
       }
 
-      console.log("imageClick: markers.length: " + markers.length);
+      //console.log("imageClick: markers.length: " + markers.length);
       // 追加条件1: 既に最大数の場合は親ハンドラに委譲（警告表示等）
       const containerRect = divRef.current?.getBoundingClientRect();
       if (markers.length >= 20 || !isMarkable || !containerRect) {
         //if (onImageClick) onImageClick(e);
-        console.log(
-          `imageClick: return 1 markers.length: ${markers.length} isMarkable: ${isMarkable} containerRect: ${containerRect}`,
-        );
+        //console.log(
+        //  `imageClick: return 1 markers.length: ${markers.length} isMarkable: ${isMarkable} containerRect: ${containerRect}`,
+        //);
         setDragStartPosition(null);
         dragStartPositionRef.current = null;
         setDragEndPosition(null);
@@ -431,11 +502,12 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       */
       const x = ((clientX - containerRect.left) / containerRect.width) * 100;
       const y = ((clientY - containerRect.top) / containerRect.height) * 100;
-      console.log("imageClick: x: " + x + ", y: " + y);
+      //console.log("imageClick: x: " + x + ", y: " + y);
       // 有効な範囲内に制限
       const clampedX = Math.max(0, Math.min(100, x));
       const clampedY = Math.max(0, Math.min(100, y));
 
+      /*
       const newMarker: MarkerInfo = {
         id: markers.length + 1,
         x: clampedX,
@@ -444,9 +516,11 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
 
       const updatedMarkers = [...markers, newMarker];
       onMarkersChange(updatedMarkers);
+      */
+      addMarker(clampedX, clampedY);
 
       // ドラッグ状態をリセット
-      console.log("imageClick: reset dragStartPosition2");
+      //console.log("imageClick: reset dragStartPosition2");
       setDragStartPosition(null);
       dragStartPositionRef.current = null;
       setDragEndPosition(null);

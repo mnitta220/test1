@@ -37,6 +37,17 @@ const CreateInspectionCheckMp: React.FC = () => {
     });
   }, []);
 
+  const handleMarkerAdd = (x: number, y: number) => {
+    setMarkers((prev) => {
+      const newMarker: MarkerInfo = {
+        id: prev.length + 1,
+        x,
+        y,
+      };
+      return [...prev, newMarker];
+    });
+  };
+
   const handleMarkersChange = (newMarkers: MarkerInfo[]) => {
     setMarkers(newMarkers);
 
@@ -73,6 +84,7 @@ const CreateInspectionCheckMp: React.FC = () => {
           ref={madorizuRef}
           imageData={imageData}
           markers={markers}
+          onMarkerAdd={handleMarkerAdd}
           onMarkersChange={handleMarkersChange}
           onImageClick={() => {
             console.log("Image clicked");

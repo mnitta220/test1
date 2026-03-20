@@ -40,7 +40,27 @@ function App() {
     });
   }, []);
 
+  /*
+  useEffect(() => {
+    console.log(`useEffect: markers: ${JSON.stringify(markers)}`);
+  }, [markers]);
+  */
+
+  const handleMarkerAdd = (x: number, y: number) => {
+    //console.log(`handleMarkerAdd: x: ${x}, y: ${y}`);
+    // クロージャの markers が古いと [...markers, new] で直前の追加が消えるため、常に最新へ追加する
+    setMarkers((prev) => {
+      const newMarker: MarkerInfo = {
+        id: prev.length + 1,
+        x,
+        y,
+      };
+      return [...prev, newMarker];
+    });
+  };
+
   const handleMarkersChange = (newMarkers: MarkerInfo[]) => {
+    //console.log(`handleMarkersChange: ${JSON.stringify(newMarkers)}`);
     setMarkers(newMarkers);
 
     /*
@@ -76,6 +96,7 @@ function App() {
           ref={madorizuRef}
           imageData={imageData}
           markers={markers}
+          onMarkerAdd={handleMarkerAdd}
           onMarkersChange={handleMarkersChange}
           onImageClick={() => {
             console.log("Image clicked");
