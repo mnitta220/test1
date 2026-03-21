@@ -19,7 +19,7 @@ function App() {
   useEffect(() => {
     const loadImageAsBase64 = async () => {
       try {
-        const response = await fetch("madorizu.jpg");
+        const response = await fetch("madorizu.gif");
         const blob = await response.blob();
 
         return new Promise<string>((resolve) => {
@@ -39,12 +39,6 @@ function App() {
       setImageData(base64Data);
     });
   }, []);
-
-  /*
-  useEffect(() => {
-    console.log(`useEffect: markers: ${JSON.stringify(markers)}`);
-  }, [markers]);
-  */
 
   const handleMarkerAdd = (x: number, y: number) => {
     //console.log(`handleMarkerAdd: x: ${x}, y: ${y}`);
@@ -98,35 +92,10 @@ function App() {
           markers={markers}
           onMarkerAdd={handleMarkerAdd}
           onMarkersChange={handleMarkersChange}
-          onImageClick={() => {
-            console.log("Image clicked");
-            /*
-              // 提出後は反応しない
-              if (isApplied) {
-                return;
-              }
-              // 追加条件: まだ保存されていない入力が存在する状態で再クリックされた場合、
-              // 直近の未保存項目(= isSaved=false)を削除しマーカーも除去
-              const unsavedItems = state.filter((it) => !it.isSaved);
-              if (unsavedItems.length > 0) {
-                const latestUnsaved = unsavedItems[unsavedItems.length - 1];
-                if (latestUnsaved.markerId !== undefined) {
-                  if (hasFloorPlan) {
-                    handleDelete(latestUnsaved.id, latestUnsaved.markerId);
-                  } else {
-                    handleDeleteNoFloorPlan(
-                      latestUnsaved.id,
-                      latestUnsaved.markerId,
-                    );
-                  }
-                }
-              } else {
-                // まだ未保存が無い(=最大数到達など)の場合は従来の警告モーダル
-                setOpenWarningModal(true);
-              }
-              */
-          }}
         />
+      </div>
+      <div className="zoom-inspection">
+        〔指2本でズームイン／ズームアウトできます〕
       </div>
 
       {/* マーカー一覧を表示 */}

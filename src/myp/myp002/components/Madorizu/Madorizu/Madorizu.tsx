@@ -48,13 +48,11 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
   ({ isMarkable, imageData, markers, onMarkerAdd, onMarkersChange }, ref) => {
     const [showPlusButton, setShowPlusButton] = useState(true);
     const divRef = useRef<HTMLDivElement | null>(null);
-    /** マーカーはこの要素内で left/top % 配置される。クリック座標もこの矩形基準にする */
     const imageContainerRef = useRef<HTMLDivElement | null>(null);
     const plusButtonRef = useRef<HTMLButtonElement | null>(null);
     const minusButtonRef = useRef<HTMLButtonElement | null>(null);
 
     const [imageWidth, setImageWidth] = useState(0);
-    // zoomLevel も native リスナーからは stale になるため、最新値を ref に同期する
     const imageWidthRef = useRef(imageWidth);
     useEffect(() => {
       imageWidthRef.current = imageWidth;
@@ -72,8 +70,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       zoomLevelRef.current = zoomLevel;
     }, [zoomLevel]);
 
-    // isDragging は UI 用の state。native addEventListener からは stale になるため
-    // 同一値を isDraggingRef にも保持し、touchmove 等は ref を参照する。
     const [isDragging, setIsDragging] = useState(false);
     const isDraggingRef = useRef(false);
     useEffect(() => {
@@ -84,8 +80,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       x: 0,
       y: 0,
     });
-    // native の mousemove は初回レンダーのクロージャのままなので、state の dragOffset は常に古い。
-    // ドラッグ中の計算は dragOffsetRef を使う。
     const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
     const [imagePosition, setImagePosition] = useState<{
@@ -106,13 +100,10 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       containerSizeRef.current = containerSize;
     }, [containerSize]);
 
-    //const [containerRect, setContainerRect] = useState<DOMRect | null>(null);
     const [dragStartPosition, setDragStartPosition] = useState<{
       x: number;
       y: number;
     } | null>(null);
-    // native の addEventListener から呼ばれる関数は state が stale になりやすいので、
-    // dragStartPosition を ref でも保持して参照元を ref.current に揃える
     const dragStartPositionRef = useRef<{
       x: number;
       y: number;
@@ -153,15 +144,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
 
     // 外部からマーカーを追加する関数
     const addMarker = (x: number, y: number) => {
-      //console.log(`addMarker: x: ${x}, y: ${y}`);
-      /*
-      const newMarker: MarkerInfo = {
-        id: markers.length + 1,
-        x: x,
-        y: y,
-      };
-      const updatedMarkers = [...markers, newMarker];
-      */
       onMarkerAdd(x, y);
     };
 
@@ -178,7 +160,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       onMarkersChange(renumberedMarkers);
     };
 
-    // 親コンポーネントにremoveMarker関数を公開
+    // 親コンポーネントにaddMarkerとremoveMarker関数を公開
     useImperativeHandle(ref, () => ({
       addMarker,
       removeMarker,
@@ -189,9 +171,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       const img = document.getElementById(IMAGE_ID) as HTMLImageElement | null;
       if (!img) return;
       const handleLoad = () => {
-        //console.log(
-        //  "handleLoad: " + img.naturalWidth + ", " + img.naturalHeight,
-        //);
         setImageWidth(img.naturalWidth);
         setImageHeight(img.naturalHeight);
       };
@@ -207,16 +186,10 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     /* c8 ignore start - リサイズの副作用もUI配線として除外 */
     useEffect(() => {
       const updateContainerSize = () => {
-        //console.log("updateContainerSize: 1");
         const el = document.getElementById(CONTAINER_ID);
         if (!el) return;
-        //console.log("updateContainerSize: 2");
         const rect = el.getBoundingClientRect();
         setContainerSize({ width: rect.width, height: rect.height });
-        //console.log(
-        //  `updateContainerSize: 3 width: ${rect.width} height: ${rect.height}`,
-        //);
-        //setContainerRect(rect);
       };
       updateContainerSize();
       window.addEventListener("resize", updateContainerSize);
@@ -229,13 +202,12 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       const el = plusButtonRef.current;
       if (!el) return;
       const handleMouseDown = (e: MouseEvent) => {
-        //console.log("handleMouseDown: ");
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
       };
+
       const handleMouseUp = (e: MouseEvent) => {
-        //console.log("handleMouseUp: ");
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
@@ -243,16 +215,16 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         zoomLevelRef.current = 2;
         setZoomLevel(2);
         imagePositionRef.current = { x: 0, y: 0 };
-        setImagePosition({ x: 0, y: 0 }); // ズームアウト時に位置をリセット
+        setImagePosition({ x: 0, y: 0 });
       };
+
       const handleTouchStart = (e: TouchEvent) => {
-        //console.log("handlePlusTouchStart: ");
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
       };
+
       const handleTouchEnd = (e: TouchEvent) => {
-        //console.log("handlePlusTouchEnd: ");
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
@@ -260,7 +232,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         zoomLevelRef.current = 2;
         setZoomLevel(2);
         imagePositionRef.current = { x: 0, y: 0 };
-        setImagePosition({ x: 0, y: 0 }); // ズーム時に位置をリセット
+        setImagePosition({ x: 0, y: 0 });
       };
 
       //el.addEventListener("click", onPlusClick, { passive: false });
@@ -273,7 +245,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       });
       el.addEventListener("touchend", handleTouchEnd, { passive: false });
       return () => {
-        //el.removeEventListener("click", onPlusClick);
         el.removeEventListener("touchstart", handleTouchStart);
         el.removeEventListener("touchend", handleTouchEnd);
         el.removeEventListener("mousedown", handleMouseDown);
@@ -284,13 +255,12 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     // マイナスボタンの処理
     useEffect(() => {
       const handleMouseDown = (e: MouseEvent) => {
-        //console.log("handleMouseDown: ");
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
       };
+
       const handleMouseUp = (e: MouseEvent) => {
-        //console.log("handleMouseUp: ");
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
@@ -298,17 +268,16 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         zoomLevelRef.current = 1;
         setZoomLevel(1);
         imagePositionRef.current = { x: 0, y: 0 };
-        setImagePosition({ x: 0, y: 0 }); // ズームアウト時に位置をリセット
+        setImagePosition({ x: 0, y: 0 });
       };
+
       const handleTouchStart = (e: TouchEvent) => {
-        //console.log("handleMinusTouchStart: ");
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
       };
 
       const handleTouchEnd = (e: TouchEvent) => {
-        //console.log("handleMinusTouchEnd: ");
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
@@ -316,12 +285,11 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         zoomLevelRef.current = 1;
         setZoomLevel(1);
         imagePositionRef.current = { x: 0, y: 0 };
-        setImagePosition({ x: 0, y: 0 }); // ズームアウト時に位置をリセット
+        setImagePosition({ x: 0, y: 0 });
       };
 
       const el = minusButtonRef.current;
       if (!el) return;
-      //el.addEventListener("click", onMinusClick, { passive: false });
       el.addEventListener("mousedown", handleMouseDown, {
         passive: false,
       });
@@ -331,7 +299,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       });
       el.addEventListener("touchend", handleTouchEnd, { passive: false });
       return () => {
-        //el.removeEventListener("click", onMinusClick);
         el.removeEventListener("touchstart", handleTouchStart);
         el.removeEventListener("touchend", handleTouchEnd);
         el.removeEventListener("mousedown", handleMouseDown);
@@ -353,16 +320,12 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         (maxOffsetY * containerAspectRatio) / imageAspectRatio;
       return {
         x: Math.max(-maxOffsetX, Math.min(maxOffsetX, pos.x)),
-        y: Math.max(
-          -adjustedMaxOffsetY,
-          Math.min(adjustedMaxOffsetY, pos.y),
-        ),
+        y: Math.max(-adjustedMaxOffsetY, Math.min(adjustedMaxOffsetY, pos.y)),
       };
     };
 
     // Pointer イベントに統合（mouse/touch 両対応）
     const beginDrag = (clientX: number, clientY: number) => {
-      //console.log("beginDrag: " + clientX + ", " + clientY);
       isDraggingRef.current = true;
       setIsDragging(true);
       const nextStart = { x: clientX, y: clientY };
@@ -390,25 +353,10 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     };
 
     const endDrag = (clientX: number, clientY: number) => {
-      console.log("endDrag: " + clientX + ", " + clientY);
       setDragEndPosition({ x: clientX, y: clientY });
       isDraggingRef.current = false;
       setIsDragging(false);
       imageClick(clientX, clientY);
-      /*
-      const startPos = dragStartPositionRef.current;
-      if (!startPos) {
-        console.log("endDrag: no dragStartPosition");
-        return;
-      }
-      console.log(
-        "endDrag: dragStartPosition: " +
-          startPos.x +
-          ", " +
-          startPos.y,
-      );
-      imageClick(clientX, clientY);
-      */
     };
 
     interactionRef.current = {
@@ -440,7 +388,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       };
 
       const handleMouseUp = (e: MouseEvent) => {
-        console.log("handleMouseUp: ");
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
@@ -485,10 +432,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
           const d = touchDistance(e.touches);
           if (d < 1) return;
           const rawZ = p.z0 * (d / p.d0);
-          const newZ = Math.min(
-            MAX_PINCH_ZOOM,
-            Math.max(MIN_PINCH_ZOOM, rawZ),
-          );
+          const newZ = Math.min(MAX_PINCH_ZOOM, Math.max(MIN_PINCH_ZOOM, rawZ));
           zoomLevelRef.current = newZ;
           setZoomLevel(newZ);
           setShowPlusButton(newZ <= 1.01);
@@ -512,7 +456,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       };
 
       const handleTouchEnd = (e: TouchEvent) => {
-        console.log("handleTouchEnd: ");
         if (e.cancelable) {
           e.preventDefault();
           e.stopPropagation();
@@ -545,9 +488,9 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         interactionRef.current.endDrag(touch.clientX, touch.clientY);
       };
 
+      el.addEventListener("touchstart", handleTouchStart, { passive: false });
       el.addEventListener("touchmove", handleTouchMove, { passive: false });
       el.addEventListener("touchend", handleTouchEnd, { passive: false });
-      el.addEventListener("touchstart", handleTouchStart, { passive: false });
       el.addEventListener("mousedown", handleMouseDown, { passive: false });
       el.addEventListener("mousemove", handleMouseMove, { passive: false });
       el.addEventListener("mouseup", handleMouseUp, { passive: false });
@@ -561,161 +504,42 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       };
     }, []);
 
-    /*
-    const dragEnd = () => {
-      console.log("dragEnd: ");
-      if (!dragStartPosition) {
-        console.log("imageClick2: no dragStartPosition");
-        return;
-      }
-      console.log(
-        "imageClick2: dragStartPosition: " +
-          dragStartPosition.x +
-          ", " +
-          dragStartPosition.y,
-      );
-    };
-    */
-    // Mouse イベント（markuplint の invalid-attr 回避: onTouch*/onPointer* 非使用）
-
-    /*
-    const handleMouseDown = (e: React.MouseEvent) => {
-      console.log("handleMouseDown");
-      e.preventDefault();
-      //if (zoomLevel > 1) {
-      beginDrag(e.clientX, e.clientY);
-      //}
-    };
-    const handleMouseMove = (e: React.MouseEvent) => {
-      //console.log("handleMouseMove");
-      e.preventDefault();
-      if (isDragging && zoomLevel > 1) {
-        updateDrag(e.clientX, e.clientY);
-      }
-    };
-    const handleMouseUp = (e: React.MouseEvent) => {
-      console.log("handleMouseUp: " + isDragging);
-      e.preventDefault();
-      if (isDragging) {
-        endDrag(e.clientX, e.clientY);
-      }
-    };
-    */
-
-    /*
-    const handleTouchStart = (e: React.TouchEvent) => {
-      console.log("handleTouchStart");
-      if (e.cancelable) {
-        e.preventDefault();
-      }
-      if (zoomLevel > 1) {
-        const touch = e.touches[0];
-        if (!touch) return;
-        beginDrag(touch.clientX, touch.clientY);
-      }
-    };
-    */
-    /*
-    const handleTouchMove = (e: React.TouchEvent) => {
-      console.log("handleTouchMove");
-      if (e.cancelable) {
-        e.preventDefault();
-      }
-      if (isDragging && zoomLevel > 1) {
-        const touch = e.touches[0];
-        if (!touch) return;
-        updateDrag(touch.clientX, touch.clientY);
-      }
-    };
-    */
-    /*
-    const handleTouchEnd = (e: React.TouchEvent) => {
-      console.log("handleTouchEnd");
-      if (e.cancelable) {
-        e.preventDefault();
-      }
-      if (isDragging) {
-        const touch = e.changedTouches[0];
-        if (touch) {
-          endDrag(touch.clientX, touch.clientY);
-          return;
-        }
-      }
-      setIsDragging(false);
-    };
-    */
-
     const imageClick = (clientX: number, clientY: number) => {
-      console.log("imageClick: " + clientX + ", " + clientY);
       const startPos = dragStartPositionRef.current;
       if (!startPos) {
-        console.log("imageClick: no dragStartPosition");
         return;
       }
-      console.log(
-        "imageClick: dragStartPosition: " + startPos.x + ", " + startPos.y,
-      );
       const deltaX = Math.abs(clientX - startPos.x);
       const deltaY = Math.abs(clientY - startPos.y);
 
       // X座標またはY座標の差が10px以上の場合はマーカーを追加しない
       if (deltaX >= 10 || deltaY >= 10) {
         // ドラッグ状態をリセット
-        //console.log("imageClick: reset dragStartPosition1");
-        setDragStartPosition(null);
-        dragStartPositionRef.current = null;
-        setDragEndPosition(null);
-        return; // マーカーを追加しない
-      }
-
-      //console.log("imageClick: markers.length: " + markers.length);
-      // 追加条件1: 既に最大数の場合は親ハンドラに委譲（警告表示等）
-      // 外側コンテナではなく image-container 基準（ズーム・パン後の実表示領域と一致）
-      const imageRect = imageContainerRef.current?.getBoundingClientRect();
-      if (markers.length >= 20 || !isMarkable || !imageRect) {
-        //if (onImageClick) onImageClick(e);
-        //console.log(
-        //  `imageClick: return 1 markers.length: ${markers.length} isMarkable: ${isMarkable} containerRect: ${containerRect}`,
-        //);
         setDragStartPosition(null);
         dragStartPositionRef.current = null;
         setDragEndPosition(null);
         return;
       }
 
-      /*
-      console.log(
-        "imageClick: containerRect: " +
-          containerRect.left +
-          ", " +
-          containerRect.width +
-          ", " +
-          containerRect.top +
-          ", " +
-          containerRect.height,
-      );
-      */
+      // 追加条件1: 既に最大数の場合は親ハンドラに委譲（警告表示等）
+      // 外側コンテナではなく image-container 基準（ズーム・パン後の実表示領域と一致）
+      const imageRect = imageContainerRef.current?.getBoundingClientRect();
+      if (markers.length >= 20 || !isMarkable || !imageRect) {
+        setDragStartPosition(null);
+        dragStartPositionRef.current = null;
+        setDragEndPosition(null);
+        return;
+      }
+
       const x = ((clientX - imageRect.left) / imageRect.width) * 100;
       const y = ((clientY - imageRect.top) / imageRect.height) * 100;
-      //console.log("imageClick: x: " + x + ", y: " + y);
       // 有効な範囲内に制限
       const clampedX = Math.max(0, Math.min(100, x));
       const clampedY = Math.max(0, Math.min(100, y));
 
-      /*
-      const newMarker: MarkerInfo = {
-        id: markers.length + 1,
-        x: clampedX,
-        y: clampedY,
-      };
-
-      const updatedMarkers = [...markers, newMarker];
-      onMarkersChange(updatedMarkers);
-      */
       addMarker(clampedX, clampedY);
 
       // ドラッグ状態をリセット
-      //console.log("imageClick: reset dragStartPosition2");
       setDragStartPosition(null);
       dragStartPositionRef.current = null;
       setDragEndPosition(null);
@@ -745,13 +569,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
               ? `${imageWidth} / ${imageHeight}`
               : "auto",
         }}
-        //onMouseDown={handleMouseDown}
-        //onMouseMove={handleMouseMove}
-        //onTouchStart={handleTouchStart}
-        //onTouchMove={handleTouchMove}
-        //onMouseUp={handleMouseUp}
-        //onTouchEnd={handleTouchEnd}
-        //onMouseLeave={handleMouseUp}
         ref={divRef}
       >
         <div
