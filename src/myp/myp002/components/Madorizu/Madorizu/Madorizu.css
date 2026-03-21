@@ -25,8 +25,8 @@
   display: flex;
   gap: 5px;
   position: absolute;
-  right: 10px;
-  top: 10px;
+  right: 4px;
+  top: 4px;
   z-index: 20;
 }
 
@@ -40,5 +40,12 @@
   font-size: 14px;
   font-weight: bold;
   gap: 4px;
-  padding: 6px 12px;
+  overflow: visible;
+  padding: 7px;
+}
+
+.zoom-button img {
+  display: block;
+  transform: scale(1.2);
+  transform-origin: center center;
 }
