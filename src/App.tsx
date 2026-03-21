@@ -1,9 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-//import { Routes, Route, useNavigate } from "react-router-dom";
 import "./App.css";
-//import MadorizuComponent from "./components/MadorizuComponent";
-//import CreateInspectionCheckMp from "./myp/myp002/pages/CreateInspectionCheckMp/CreateInspectionCheckMp";
 import Madorizu from "./myp/myp002/components/Madorizu/Madorizu/Madorizu";
+import { fetchImageAsDataUrl } from "./utils/fetchImageAsDataUrl";
 import type {
   MarkerInfo,
   MadorizuRef,
@@ -16,34 +14,18 @@ function App() {
   const [imageData, setImageData] = useState<string>("");
   const madorizuRef = useRef<MadorizuRef>(null);
 
-  // 画像ファイルをbase64エンコードする
   useEffect(() => {
-    const loadImageAsBase64 = async () => {
-      try {
-        const response = await fetch("madorizu.gif");
-        const blob = await response.blob();
-
-        return new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            resolve(reader.result as string);
-          };
-          reader.readAsDataURL(blob);
-        });
-      } catch (error) {
-        console.error("画像の読み込みに失敗しました:", error);
-        return "";
-      }
+    let cancelled = false;
+    void (async () => {
+      const data = await fetchImageAsDataUrl("madorizu.gif");
+      if (!cancelled) setImageData(data);
+    })();
+    return () => {
+      cancelled = true;
     };
-
-    loadImageAsBase64().then((base64Data) => {
-      setImageData(base64Data);
-    });
   }, []);
 
   const handleMarkerAdd = (x: number, y: number) => {
-    //console.log(`handleMarkerAdd: x: ${x}, y: ${y}`);
-    // クロージャの markers が古いと [...markers, new] で直前の追加が消えるため、常に最新へ追加する
     setMarkers((prev) => {
       const newMarker: MarkerInfo = {
         id: prev.length + 1,
@@ -55,31 +37,11 @@ function App() {
   };
 
   const handleMarkersChange = (newMarkers: MarkerInfo[]) => {
-    //console.log(`handleMarkersChange: ${JSON.stringify(newMarkers)}`);
     setMarkers(newMarkers);
-
-    /*
-    const latestMarker = newMarkers[newMarkers.length - 1];
-    if (latestMarker) {
-      const newId = crypto.randomUUID();
-      dispatch({
-        type: "ADD_ACCORDION",
-        id: newId,
-        markerId: latestMarker.id,
-        x: Math.ceil(latestMarker.x),
-        y: Math.ceil(latestMarker.y),
-      });
-      // TODO:
-      setOpenIssueLocation(true);
-      setLatestItemId(newId);
-    }
-    */
   };
 
   const handleRemoveMarker = (markerId: number) => {
-    if (madorizuRef.current) {
-      madorizuRef.current.removeMarker(markerId);
-    }
+    madorizuRef.current?.removeMarker(markerId);
   };
 
   if (!logedIn) {

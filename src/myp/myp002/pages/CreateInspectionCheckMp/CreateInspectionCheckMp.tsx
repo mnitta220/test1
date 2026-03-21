@@ -1,40 +1,26 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import Madorizu from "../../components/Madorizu/Madorizu/Madorizu";
 import type {
   MarkerInfo,
   MadorizuRef,
 } from "../../components/Madorizu/Madorizu/Madorizu";
+import { fetchImageAsDataUrl } from "../../../../utils/fetchImageAsDataUrl";
 import "./CreateInspectionCheckMp.css";
 
-const CreateInspectionCheckMp: React.FC = () => {
-  //const [canAdd, setCanAdd] = useState(true);
+const CreateInspectionCheckMp = () => {
   const [markers, setMarkers] = useState<MarkerInfo[]>([]);
   const [imageData, setImageData] = useState<string>("");
   const madorizuRef = useRef<MadorizuRef>(null);
 
-  // 画像ファイルをbase64エンコードする
   useEffect(() => {
-    const loadImageAsBase64 = async () => {
-      try {
-        const response = await fetch("madorizu.jpg");
-        const blob = await response.blob();
-
-        return new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            resolve(reader.result as string);
-          };
-          reader.readAsDataURL(blob);
-        });
-      } catch (error) {
-        console.error("画像の読み込みに失敗しました:", error);
-        return "";
-      }
+    let cancelled = false;
+    void (async () => {
+      const data = await fetchImageAsDataUrl("madorizu.jpg");
+      if (!cancelled) setImageData(data);
+    })();
+    return () => {
+      cancelled = true;
     };
-
-    loadImageAsBase64().then((base64Data) => {
-      setImageData(base64Data);
-    });
   }, []);
 
   const handleMarkerAdd = (x: number, y: number) => {
@@ -50,29 +36,10 @@ const CreateInspectionCheckMp: React.FC = () => {
 
   const handleMarkersChange = (newMarkers: MarkerInfo[]) => {
     setMarkers(newMarkers);
-
-    /*
-    const latestMarker = newMarkers[newMarkers.length - 1];
-    if (latestMarker) {
-      const newId = crypto.randomUUID();
-      dispatch({
-        type: "ADD_ACCORDION",
-        id: newId,
-        markerId: latestMarker.id,
-        x: Math.ceil(latestMarker.x),
-        y: Math.ceil(latestMarker.y),
-      });
-      // TODO:
-      setOpenIssueLocation(true);
-      setLatestItemId(newId);
-    }
-    */
   };
 
   const handleRemoveMarker = (markerId: number) => {
-    if (madorizuRef.current) {
-      madorizuRef.current.removeMarker(markerId);
-    }
+    madorizuRef.current?.removeMarker(markerId);
   };
 
   return (
@@ -86,38 +53,9 @@ const CreateInspectionCheckMp: React.FC = () => {
           markers={markers}
           onMarkerAdd={handleMarkerAdd}
           onMarkersChange={handleMarkersChange}
-          onImageClick={() => {
-            console.log("Image clicked");
-            /*
-              // 提出後は反応しない
-              if (isApplied) {
-                return;
-              }
-              // 追加条件: まだ保存されていない入力が存在する状態で再クリックされた場合、
-              // 直近の未保存項目(= isSaved=false)を削除しマーカーも除去
-              const unsavedItems = state.filter((it) => !it.isSaved);
-              if (unsavedItems.length > 0) {
-                const latestUnsaved = unsavedItems[unsavedItems.length - 1];
-                if (latestUnsaved.markerId !== undefined) {
-                  if (hasFloorPlan) {
-                    handleDelete(latestUnsaved.id, latestUnsaved.markerId);
-                  } else {
-                    handleDeleteNoFloorPlan(
-                      latestUnsaved.id,
-                      latestUnsaved.markerId,
-                    );
-                  }
-                }
-              } else {
-                // まだ未保存が無い(=最大数到達など)の場合は従来の警告モーダル
-                setOpenWarningModal(true);
-              }
-              */
-          }}
         />
       </div>
 
-      {/* マーカー一覧を表示 */}
       {markers.length > 0 && (
         <div className="inspection">
           <h3>マーカー一覧</h3>
@@ -148,6 +86,7 @@ const CreateInspectionCheckMp: React.FC = () => {
                   座標: ({marker.x.toFixed(1)}%, {marker.y.toFixed(1)}%)
                 </div>
                 <button
+                  type="button"
                   onClick={() => handleRemoveMarker(marker.id)}
                   style={{
                     backgroundColor: "#f44336",

@@ -1,4 +1,4 @@
-import React, {
+import {
   useState,
   useEffect,
   useImperativeHandle,
@@ -15,8 +15,6 @@ interface MadorizuProps {
   markers: MarkerInfo[];
   onMarkerAdd: (x: number, y: number) => void;
   onMarkersChange: (markers: MarkerInfo[]) => void;
-  // 親での追加制御や削除誘発のため、画像以外の要素クリックを受け取れるよう汎用化
-  onImageClick?: (event: React.MouseEvent) => void;
 }
 
 /**
@@ -70,16 +68,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       zoomLevelRef.current = zoomLevel;
     }, [zoomLevel]);
 
-    const [isDragging, setIsDragging] = useState(false);
     const isDraggingRef = useRef(false);
-    useEffect(() => {
-      isDraggingRef.current = isDragging;
-    }, [isDragging]);
-
-    const [, setDragOffset] = useState<{ x: number; y: number }>({
-      x: 0,
-      y: 0,
-    });
     const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
     const [imagePosition, setImagePosition] = useState<{
@@ -134,20 +123,10 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       clampImagePosition: (_zl, p) => p,
     });
 
-    const [, setDragEndPosition] = useState<{
-      x: number;
-      y: number;
-    } | null>(null);
     // DOM 直接参照は markuplint invalid-attr 回避のため id ベースで取得
     const CONTAINER_ID = "madorizu-container-root";
     const IMAGE_ID = "madorizu-image";
 
-    // 外部からマーカーを追加する関数
-    const addMarker = (x: number, y: number) => {
-      onMarkerAdd(x, y);
-    };
-
-    // 外部からマーカーを削除する関数
     const removeMarker = (markerId: number) => {
       const filteredMarkers = markers.filter(
         (marker) => marker.id !== markerId,
@@ -160,9 +139,8 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       onMarkersChange(renumberedMarkers);
     };
 
-    // 親コンポーネントにaddMarkerとremoveMarker関数を公開
     useImperativeHandle(ref, () => ({
-      addMarker,
+      addMarker: onMarkerAdd,
       removeMarker,
     }));
 
@@ -235,7 +213,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         setImagePosition({ x: 0, y: 0 });
       };
 
-      //el.addEventListener("click", onPlusClick, { passive: false });
       el.addEventListener("mousedown", handleMouseDown, {
         passive: false,
       });
@@ -327,22 +304,18 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     // Pointer イベントに統合（mouse/touch 両対応）
     const beginDrag = (clientX: number, clientY: number) => {
       isDraggingRef.current = true;
-      setIsDragging(true);
       const nextStart = { x: clientX, y: clientY };
       setDragStartPosition(nextStart);
       dragStartPositionRef.current = nextStart;
-      setDragEndPosition(null);
       const pos = imagePositionRef.current;
       const nextOffset = {
         x: clientX - pos.x,
         y: clientY - pos.y,
       };
       dragOffsetRef.current = nextOffset;
-      setDragOffset(nextOffset);
     };
 
     const updateDrag = (clientX: number, clientY: number) => {
-      setDragEndPosition({ x: clientX, y: clientY });
       const off = dragOffsetRef.current;
       const newX = clientX - off.x;
       const newY = clientY - off.y;
@@ -353,9 +326,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     };
 
     const endDrag = (clientX: number, clientY: number) => {
-      setDragEndPosition({ x: clientX, y: clientY });
       isDraggingRef.current = false;
-      setIsDragging(false);
       imageClick(clientX, clientY);
     };
 
@@ -401,7 +372,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         if (e.touches.length >= 2) {
           pinchGestureUsedRef.current = true;
           isDraggingRef.current = false;
-          setIsDragging(false);
           dragStartPositionRef.current = null;
           setDragStartPosition(null);
           const d0 = touchDistance(e.touches);
@@ -479,7 +449,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
 
         if (usedPinch) {
           isDraggingRef.current = false;
-          setIsDragging(false);
           dragStartPositionRef.current = null;
           setDragStartPosition(null);
           return;
@@ -514,10 +483,8 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
 
       // X座標またはY座標の差が10px以上の場合はマーカーを追加しない
       if (deltaX >= 10 || deltaY >= 10) {
-        // ドラッグ状態をリセット
         setDragStartPosition(null);
         dragStartPositionRef.current = null;
-        setDragEndPosition(null);
         return;
       }
 
@@ -527,7 +494,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       if (markers.length >= 20 || !isMarkable || !imageRect) {
         setDragStartPosition(null);
         dragStartPositionRef.current = null;
-        setDragEndPosition(null);
         return;
       }
 
@@ -537,12 +503,10 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       const clampedX = Math.max(0, Math.min(100, x));
       const clampedY = Math.max(0, Math.min(100, y));
 
-      addMarker(clampedX, clampedY);
+      onMarkerAdd(clampedX, clampedY);
 
-      // ドラッグ状態をリセット
       setDragStartPosition(null);
       dragStartPositionRef.current = null;
-      setDragEndPosition(null);
     };
 
     // 画像のアスペクト比を計算
