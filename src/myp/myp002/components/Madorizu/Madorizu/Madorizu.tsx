@@ -35,7 +35,7 @@ export interface MadorizuRef {
 /* c8 ignore stop */
 
 const MIN_PINCH_ZOOM = 1;
-const MAX_PINCH_ZOOM = 4;
+const MAX_PINCH_ZOOM = 6;
 
 function touchDistance(touches: TouchList): number {
   if (touches.length < 2) return 0;

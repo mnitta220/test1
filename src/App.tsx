@@ -10,7 +10,8 @@ import type {
 } from "./myp/myp002/components/Madorizu/Madorizu/Madorizu";
 
 function App() {
-  //const [canAdd, setCanAdd] = useState(true);
+  const [logedIn, setLogedIn] = useState(false);
+  const [password, setPassword] = useState("");
   const [markers, setMarkers] = useState<MarkerInfo[]>([]);
   const [imageData, setImageData] = useState<string>("");
   const madorizuRef = useRef<MadorizuRef>(null);
@@ -80,6 +81,29 @@ function App() {
       madorizuRef.current.removeMarker(markerId);
     }
   };
+
+  if (!logedIn) {
+    return (
+      <div style={{ margin: "20px" }}>
+        <input
+          type="password"
+          placeholder="パスワード"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <button
+          style={{ marginLeft: "10px" }}
+          onClick={() => {
+            if (password === "nexus") {
+              setLogedIn(true);
+            }
+          }}
+        >
+          ログイン
+        </button>
+      </div>
+    );
+  }
 
   return (
     <>
