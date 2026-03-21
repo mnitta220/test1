@@ -89,17 +89,10 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       containerSizeRef.current = containerSize;
     }, [containerSize]);
 
-    const [dragStartPosition, setDragStartPosition] = useState<{
-      x: number;
-      y: number;
-    } | null>(null);
     const dragStartPositionRef = useRef<{
       x: number;
       y: number;
     } | null>(null);
-    useEffect(() => {
-      dragStartPositionRef.current = dragStartPosition;
-    }, [dragStartPosition]);
 
     /** 2 本指ピンチの初期距離と開始時ズーム */
     const pinchRef = useRef<{ d0: number; z0: number } | null>(null);
@@ -305,7 +298,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     const beginDrag = (clientX: number, clientY: number) => {
       isDraggingRef.current = true;
       const nextStart = { x: clientX, y: clientY };
-      setDragStartPosition(nextStart);
       dragStartPositionRef.current = nextStart;
       const pos = imagePositionRef.current;
       const nextOffset = {
@@ -373,7 +365,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
           pinchGestureUsedRef.current = true;
           isDraggingRef.current = false;
           dragStartPositionRef.current = null;
-          setDragStartPosition(null);
           const d0 = touchDistance(e.touches);
           if (d0 > 10) {
             pinchRef.current = {
@@ -450,7 +441,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         if (usedPinch) {
           isDraggingRef.current = false;
           dragStartPositionRef.current = null;
-          setDragStartPosition(null);
           return;
         }
 
@@ -483,7 +473,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
 
       // X座標またはY座標の差が10px以上の場合はマーカーを追加しない
       if (deltaX >= 10 || deltaY >= 10) {
-        setDragStartPosition(null);
         dragStartPositionRef.current = null;
         return;
       }
@@ -492,7 +481,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       // 外側コンテナではなく image-container 基準（ズーム・パン後の実表示領域と一致）
       const imageRect = imageContainerRef.current?.getBoundingClientRect();
       if (markers.length >= 20 || !isMarkable || !imageRect) {
-        setDragStartPosition(null);
         dragStartPositionRef.current = null;
         return;
       }
@@ -505,7 +493,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
 
       onMarkerAdd(clampedX, clampedY);
 
-      setDragStartPosition(null);
       dragStartPositionRef.current = null;
     };
 

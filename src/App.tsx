@@ -1,70 +1,23 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import "./App.css";
 import Madorizu from "./myp/myp002/components/Madorizu/Madorizu/Madorizu";
-import { fetchImageAsDataUrl } from "./utils/fetchImageAsDataUrl";
-import type {
-  MarkerInfo,
-  MadorizuRef,
-} from "./myp/myp002/components/Madorizu/Madorizu/Madorizu";
+import { useMadorizuImageAndMarkers } from "./hooks/useMadorizuImageAndMarkers";
+import { MarkerListPanel } from "./components/MarkerListPanel/MarkerListPanel";
+import { LoginForm } from "./components/LoginForm/LoginForm";
 
 function App() {
-  const [logedIn, setLogedIn] = useState(false);
-  const [password, setPassword] = useState("");
-  const [markers, setMarkers] = useState<MarkerInfo[]>([]);
-  const [imageData, setImageData] = useState<string>("");
-  const madorizuRef = useRef<MadorizuRef>(null);
+  const [loggedIn, setLoggedIn] = useState(false);
+  const {
+    imageData,
+    markers,
+    madorizuRef,
+    handleMarkerAdd,
+    onMarkersChange,
+    removeMarkerById,
+  } = useMadorizuImageAndMarkers("madorizu.gif");
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const data = await fetchImageAsDataUrl("madorizu.gif");
-      if (!cancelled) setImageData(data);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const handleMarkerAdd = (x: number, y: number) => {
-    setMarkers((prev) => {
-      const newMarker: MarkerInfo = {
-        id: prev.length + 1,
-        x,
-        y,
-      };
-      return [...prev, newMarker];
-    });
-  };
-
-  const handleMarkersChange = (newMarkers: MarkerInfo[]) => {
-    setMarkers(newMarkers);
-  };
-
-  const handleRemoveMarker = (markerId: number) => {
-    madorizuRef.current?.removeMarker(markerId);
-  };
-
-  if (!logedIn) {
-    return (
-      <div style={{ margin: "20px" }}>
-        <input
-          type="password"
-          placeholder="パスワード"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <button
-          style={{ marginLeft: "10px" }}
-          onClick={() => {
-            if (password === "nexus") {
-              setLogedIn(true);
-            }
-          }}
-        >
-          ログイン
-        </button>
-      </div>
-    );
+  if (!loggedIn) {
+    return <LoginForm onSuccess={() => setLoggedIn(true)} />;
   }
 
   return (
@@ -77,60 +30,12 @@ function App() {
           imageData={imageData}
           markers={markers}
           onMarkerAdd={handleMarkerAdd}
-          onMarkersChange={handleMarkersChange}
+          onMarkersChange={onMarkersChange}
         />
       </div>
       <div className="zoom-inspection">〔指2本で拡大／縮小できます〕</div>
 
-      {/* マーカー一覧を表示 */}
-      {markers.length > 0 && (
-        <div className="inspection">
-          <h3>マーカー一覧</h3>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-              gap: "10px",
-              marginTop: "10px",
-            }}
-          >
-            {markers.map((marker) => (
-              <div
-                key={marker.id}
-                style={{
-                  padding: "8px",
-                  border: "1px solid #ccc",
-                  borderRadius: "4px",
-                  backgroundColor: "#f9f9f9",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <div>
-                  <strong>マーカー {marker.id}</strong>
-                  <br />
-                  座標: ({marker.x.toFixed(1)}%, {marker.y.toFixed(1)}%)
-                </div>
-                <button
-                  onClick={() => handleRemoveMarker(marker.id)}
-                  style={{
-                    backgroundColor: "#f44336",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "4px",
-                    padding: "4px 8px",
-                    cursor: "pointer",
-                    fontSize: "12px",
-                  }}
-                >
-                  削除
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <MarkerListPanel markers={markers} onRemoveMarker={removeMarkerById} />
     </>
   );
 }
