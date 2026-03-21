@@ -34,6 +34,16 @@ export interface MadorizuRef {
 }
 /* c8 ignore stop */
 
+const MIN_PINCH_ZOOM = 1;
+const MAX_PINCH_ZOOM = 4;
+
+function touchDistance(touches: TouchList): number {
+  if (touches.length < 2) return 0;
+  const a = touches[0];
+  const b = touches[1];
+  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+}
+
 const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
   ({ isMarkable, imageData, markers, onMarkerAdd, onMarkersChange }, ref) => {
     const [showPlusButton, setShowPlusButton] = useState(true);
@@ -110,6 +120,28 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     useEffect(() => {
       dragStartPositionRef.current = dragStartPosition;
     }, [dragStartPosition]);
+
+    /** 2 本指ピンチの初期距離と開始時ズーム */
+    const pinchRef = useRef<{ d0: number; z0: number } | null>(null);
+    /** このタッチ系列でピンチを行った場合、指離しでマーカー追加（endDrag）を抑止 */
+    const pinchGestureUsedRef = useRef(false);
+
+    type InteractionApi = {
+      beginDrag: (x: number, y: number) => void;
+      updateDrag: (x: number, y: number) => void;
+      endDrag: (x: number, y: number) => void;
+      clampImagePosition: (
+        zl: number,
+        pos: { x: number; y: number },
+      ) => { x: number; y: number };
+    };
+
+    const interactionRef = useRef<InteractionApi>({
+      beginDrag: () => {},
+      updateDrag: () => {},
+      endDrag: () => {},
+      clampImagePosition: (_zl, p) => p,
+    });
 
     const [, setDragEndPosition] = useState<{
       x: number;
@@ -192,93 +224,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     }, []);
     /* c8 ignore stop */
 
-    useEffect(() => {
-      const el = divRef.current;
-      if (!el) return;
-      const handleMouseDown = (e: MouseEvent) => {
-        //console.log("handleMouseDown: ");
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        beginDrag(e.clientX, e.clientY);
-      };
-
-      const handleMouseMove = (e: MouseEvent) => {
-        //console.log("handleMouseMove: ");
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-
-        if (isDraggingRef.current && zoomLevelRef.current > 1) {
-          updateDrag(e.clientX, e.clientY);
-        }
-      };
-
-      const handleMouseUp = (e: MouseEvent) => {
-        console.log("handleMouseUp: ");
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        endDrag(e.clientX, e.clientY);
-      };
-
-      const handleTouchStart = (e: TouchEvent) => {
-        if (e.cancelable) {
-          e.preventDefault();
-          //console.log("onTouchStart: cancelable");
-        }
-        const touch = e.touches[0];
-        if (touch) {
-          //console.log("handleTouchStart: " + touch.clientX);
-          beginDrag(touch.clientX, touch.clientY);
-        }
-      };
-
-      const handleTouchMove = (e: TouchEvent) => {
-        if (e.cancelable) {
-          e.preventDefault();
-        }
-
-        const touch = e.touches[0];
-        if (!touch) return;
-
-        if (isDraggingRef.current && zoomLevelRef.current > 1) {
-          updateDrag(touch.clientX, touch.clientY);
-        }
-      };
-
-      const handleTouchEnd = (e: TouchEvent) => {
-        console.log("handleTouchEnd: ");
-        // passive 制約に備えてキャンセル可能なときだけ抑止する
-        if (e.cancelable) {
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-          //console.log("onTouchEnd: cancelable");
-        }
-        const touch = e.changedTouches[0];
-        if (touch) {
-          console.log("handleTouchEnd: " + touch.clientX);
-          endDrag(touch.clientX, touch.clientY);
-        }
-      };
-
-      el.addEventListener("touchmove", handleTouchMove, { passive: false });
-      el.addEventListener("touchend", handleTouchEnd, { passive: false });
-      el.addEventListener("touchstart", handleTouchStart, { passive: false });
-      el.addEventListener("mousedown", handleMouseDown, { passive: false });
-      el.addEventListener("mousemove", handleMouseMove, { passive: false });
-      el.addEventListener("mouseup", handleMouseUp, { passive: false });
-      return () => {
-        el.removeEventListener("mousedown", handleMouseDown);
-        el.removeEventListener("mousemove", handleMouseMove);
-        el.removeEventListener("mouseup", handleMouseUp);
-        el.removeEventListener("touchstart", handleTouchStart);
-        el.removeEventListener("touchmove", handleTouchMove);
-        el.removeEventListener("touchend", handleTouchEnd);
-      };
-    }, []);
-
     // プラスボタンの処理
     useEffect(() => {
       const el = plusButtonRef.current;
@@ -297,6 +242,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         setShowPlusButton(false);
         zoomLevelRef.current = 2;
         setZoomLevel(2);
+        imagePositionRef.current = { x: 0, y: 0 };
         setImagePosition({ x: 0, y: 0 }); // ズームアウト時に位置をリセット
       };
       const handleTouchStart = (e: TouchEvent) => {
@@ -313,6 +259,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         setShowPlusButton(false);
         zoomLevelRef.current = 2;
         setZoomLevel(2);
+        imagePositionRef.current = { x: 0, y: 0 };
         setImagePosition({ x: 0, y: 0 }); // ズーム時に位置をリセット
       };
 
@@ -350,6 +297,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         setShowPlusButton(true);
         zoomLevelRef.current = 1;
         setZoomLevel(1);
+        imagePositionRef.current = { x: 0, y: 0 };
         setImagePosition({ x: 0, y: 0 }); // ズームアウト時に位置をリセット
       };
       const handleTouchStart = (e: TouchEvent) => {
@@ -367,6 +315,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         setShowPlusButton(true);
         zoomLevelRef.current = 1;
         setZoomLevel(1);
+        imagePositionRef.current = { x: 0, y: 0 };
         setImagePosition({ x: 0, y: 0 }); // ズームアウト時に位置をリセット
       };
 
@@ -389,6 +338,27 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         el.removeEventListener("mouseup", handleMouseUp);
       };
     }, []);
+
+    const clampImagePosition = (zl: number, pos: { x: number; y: number }) => {
+      const cw = containerSizeRef.current.width;
+      const ch = containerSizeRef.current.height;
+      const iw = imageWidthRef.current;
+      const ih = imageHeightRef.current;
+      if (ih <= 0 || cw <= 0) return pos;
+      const maxOffsetX = (cw * (zl - 1)) / 2;
+      const maxOffsetY = (ch * (zl - 1)) / 2;
+      const imageAspectRatio = iw / ih;
+      const containerAspectRatio = cw / ch;
+      const adjustedMaxOffsetY =
+        (maxOffsetY * containerAspectRatio) / imageAspectRatio;
+      return {
+        x: Math.max(-maxOffsetX, Math.min(maxOffsetX, pos.x)),
+        y: Math.max(
+          -adjustedMaxOffsetY,
+          Math.min(adjustedMaxOffsetY, pos.y),
+        ),
+      };
+    };
 
     // Pointer イベントに統合（mouse/touch 両対応）
     const beginDrag = (clientX: number, clientY: number) => {
@@ -414,27 +384,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       const newX = clientX - off.x;
       const newY = clientY - off.y;
       const zl = zoomLevelRef.current;
-      const maxOffsetX = (containerSizeRef.current.width * (zl - 1)) / 2;
-      const maxOffsetY = (containerSizeRef.current.height * (zl - 1)) / 2;
-      /*
-      console.log(
-        `imageWidth: ${imageWidthRef.current} imageHeight: ${imageHeightRef.current}`,
-      );
-      */
-      const imageAspectRatio = imageWidthRef.current / imageHeightRef.current;
-      const containerAspectRatio =
-        containerSizeRef.current.width / containerSizeRef.current.height;
-      const adjustedMaxOffsetY =
-        (maxOffsetY * containerAspectRatio) / imageAspectRatio;
-      const clampedX = Math.max(-maxOffsetX, Math.min(maxOffsetX, newX));
-      const clampedY = Math.max(
-        -adjustedMaxOffsetY,
-        Math.min(adjustedMaxOffsetY, newY),
-      );
-      //console.log(
-      //  "updateDrag: clampedX: " + clampedX + ", clampedY: " + clampedY,
-      //);
-      const nextPos = { x: clampedX, y: clampedY };
+      const nextPos = clampImagePosition(zl, { x: newX, y: newY });
       imagePositionRef.current = nextPos;
       setImagePosition(nextPos);
     };
@@ -460,6 +410,156 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       imageClick(clientX, clientY);
       */
     };
+
+    interactionRef.current = {
+      beginDrag,
+      updateDrag,
+      endDrag,
+      clampImagePosition,
+    };
+
+    useEffect(() => {
+      const el = divRef.current;
+      if (!el) return;
+
+      const handleMouseDown = (e: MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        interactionRef.current.beginDrag(e.clientX, e.clientY);
+      };
+
+      const handleMouseMove = (e: MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+
+        if (isDraggingRef.current && zoomLevelRef.current > 1) {
+          interactionRef.current.updateDrag(e.clientX, e.clientY);
+        }
+      };
+
+      const handleMouseUp = (e: MouseEvent) => {
+        console.log("handleMouseUp: ");
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        interactionRef.current.endDrag(e.clientX, e.clientY);
+      };
+
+      const handleTouchStart = (e: TouchEvent) => {
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+        if (e.touches.length >= 2) {
+          pinchGestureUsedRef.current = true;
+          isDraggingRef.current = false;
+          setIsDragging(false);
+          dragStartPositionRef.current = null;
+          setDragStartPosition(null);
+          const d0 = touchDistance(e.touches);
+          if (d0 > 10) {
+            pinchRef.current = {
+              d0,
+              z0: zoomLevelRef.current,
+            };
+          } else {
+            pinchRef.current = null;
+          }
+          return;
+        }
+        const touch = e.touches[0];
+        if (touch) {
+          interactionRef.current.beginDrag(touch.clientX, touch.clientY);
+        }
+      };
+
+      const handleTouchMove = (e: TouchEvent) => {
+        if (e.touches.length >= 2) {
+          if (e.cancelable) {
+            e.preventDefault();
+          }
+          pinchGestureUsedRef.current = true;
+          const p = pinchRef.current;
+          if (!p || p.d0 < 10) return;
+          const d = touchDistance(e.touches);
+          if (d < 1) return;
+          const rawZ = p.z0 * (d / p.d0);
+          const newZ = Math.min(
+            MAX_PINCH_ZOOM,
+            Math.max(MIN_PINCH_ZOOM, rawZ),
+          );
+          zoomLevelRef.current = newZ;
+          setZoomLevel(newZ);
+          setShowPlusButton(newZ <= 1.01);
+          const pos = imagePositionRef.current;
+          const clamped = interactionRef.current.clampImagePosition(newZ, pos);
+          imagePositionRef.current = clamped;
+          setImagePosition(clamped);
+          return;
+        }
+
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+
+        const touch = e.touches[0];
+        if (!touch) return;
+
+        if (isDraggingRef.current && zoomLevelRef.current > 1) {
+          interactionRef.current.updateDrag(touch.clientX, touch.clientY);
+        }
+      };
+
+      const handleTouchEnd = (e: TouchEvent) => {
+        console.log("handleTouchEnd: ");
+        if (e.cancelable) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+        }
+
+        if (e.touches.length >= 2) {
+          return;
+        }
+        if (e.touches.length === 1) {
+          pinchRef.current = null;
+          return;
+        }
+
+        const usedPinch = pinchGestureUsedRef.current;
+        pinchGestureUsedRef.current = false;
+        pinchRef.current = null;
+
+        const touch = e.changedTouches[0];
+        if (!touch) return;
+
+        if (usedPinch) {
+          isDraggingRef.current = false;
+          setIsDragging(false);
+          dragStartPositionRef.current = null;
+          setDragStartPosition(null);
+          return;
+        }
+
+        interactionRef.current.endDrag(touch.clientX, touch.clientY);
+      };
+
+      el.addEventListener("touchmove", handleTouchMove, { passive: false });
+      el.addEventListener("touchend", handleTouchEnd, { passive: false });
+      el.addEventListener("touchstart", handleTouchStart, { passive: false });
+      el.addEventListener("mousedown", handleMouseDown, { passive: false });
+      el.addEventListener("mousemove", handleMouseMove, { passive: false });
+      el.addEventListener("mouseup", handleMouseUp, { passive: false });
+      return () => {
+        el.removeEventListener("mousedown", handleMouseDown);
+        el.removeEventListener("mousemove", handleMouseMove);
+        el.removeEventListener("mouseup", handleMouseUp);
+        el.removeEventListener("touchstart", handleTouchStart);
+        el.removeEventListener("touchmove", handleTouchMove);
+        el.removeEventListener("touchend", handleTouchEnd);
+      };
+    }, []);
 
     /*
     const dragEnd = () => {

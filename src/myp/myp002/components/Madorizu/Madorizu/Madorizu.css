@@ -2,6 +2,8 @@
   max-width: 100%;
   overflow: hidden;
   position: relative;
+  /* ピンチズームを自前で扱い、ブラウザのジェスチャと競合しにくくする */
+  touch-action: none;
 }
 
 .image-container {
