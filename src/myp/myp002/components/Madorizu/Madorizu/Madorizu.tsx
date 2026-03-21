@@ -38,6 +38,8 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
   ({ isMarkable, imageData, markers, onMarkerAdd, onMarkersChange }, ref) => {
     const [showPlusButton, setShowPlusButton] = useState(true);
     const divRef = useRef<HTMLDivElement | null>(null);
+    /** マーカーはこの要素内で left/top % 配置される。クリック座標もこの矩形基準にする */
+    const imageContainerRef = useRef<HTMLDivElement | null>(null);
     const plusButtonRef = useRef<HTMLButtonElement | null>(null);
     const minusButtonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -554,8 +556,9 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
 
       //console.log("imageClick: markers.length: " + markers.length);
       // 追加条件1: 既に最大数の場合は親ハンドラに委譲（警告表示等）
-      const containerRect = divRef.current?.getBoundingClientRect();
-      if (markers.length >= 20 || !isMarkable || !containerRect) {
+      // 外側コンテナではなく image-container 基準（ズーム・パン後の実表示領域と一致）
+      const imageRect = imageContainerRef.current?.getBoundingClientRect();
+      if (markers.length >= 20 || !isMarkable || !imageRect) {
         //if (onImageClick) onImageClick(e);
         //console.log(
         //  `imageClick: return 1 markers.length: ${markers.length} isMarkable: ${isMarkable} containerRect: ${containerRect}`,
@@ -578,8 +581,8 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
           containerRect.height,
       );
       */
-      const x = ((clientX - containerRect.left) / containerRect.width) * 100;
-      const y = ((clientY - containerRect.top) / containerRect.height) * 100;
+      const x = ((clientX - imageRect.left) / imageRect.width) * 100;
+      const y = ((clientY - imageRect.top) / imageRect.height) * 100;
       //console.log("imageClick: x: " + x + ", y: " + y);
       // 有効な範囲内に制限
       const clampedX = Math.max(0, Math.min(100, x));
@@ -638,6 +641,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         ref={divRef}
       >
         <div
+          ref={imageContainerRef}
           className="image-container"
           style={{
             transform: `translate(-50%, -50%) translate(${imagePosition.x}px, ${imagePosition.y}px)`,
