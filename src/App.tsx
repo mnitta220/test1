@@ -80,9 +80,7 @@ function App() {
           onMarkersChange={handleMarkersChange}
         />
       </div>
-      <div className="zoom-inspection">
-        〔指2本でズームイン／ズームアウトできます〕
-      </div>
+      <div className="zoom-inspection">〔指2本で拡大／縮小できます〕</div>
 
       {/* マーカー一覧を表示 */}
       {markers.length > 0 && (
