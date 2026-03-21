@@ -70,14 +70,22 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       isDraggingRef.current = isDragging;
     }, [isDragging]);
 
-    const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({
+    const [, setDragOffset] = useState<{ x: number; y: number }>({
       x: 0,
       y: 0,
     });
+    // native の mousemove は初回レンダーのクロージャのままなので、state の dragOffset は常に古い。
+    // ドラッグ中の計算は dragOffsetRef を使う。
+    const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
     const [imagePosition, setImagePosition] = useState<{
       x: number;
       y: number;
     }>({ x: 0, y: 0 });
+    const imagePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+    useEffect(() => {
+      imagePositionRef.current = imagePosition;
+    }, [imagePosition]);
 
     const [containerSize, setContainerSize] = useState<{
       width: number;
@@ -391,16 +399,20 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       setDragStartPosition(nextStart);
       dragStartPositionRef.current = nextStart;
       setDragEndPosition(null);
-      setDragOffset({
-        x: clientX - imagePosition.x,
-        y: clientY - imagePosition.y,
-      });
+      const pos = imagePositionRef.current;
+      const nextOffset = {
+        x: clientX - pos.x,
+        y: clientY - pos.y,
+      };
+      dragOffsetRef.current = nextOffset;
+      setDragOffset(nextOffset);
     };
 
     const updateDrag = (clientX: number, clientY: number) => {
       setDragEndPosition({ x: clientX, y: clientY });
-      const newX = clientX - dragOffset.x;
-      const newY = clientY - dragOffset.y;
+      const off = dragOffsetRef.current;
+      const newX = clientX - off.x;
+      const newY = clientY - off.y;
       const zl = zoomLevelRef.current;
       const maxOffsetX = (containerSizeRef.current.width * (zl - 1)) / 2;
       const maxOffsetY = (containerSizeRef.current.height * (zl - 1)) / 2;
@@ -422,7 +434,9 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       //console.log(
       //  "updateDrag: clampedX: " + clampedX + ", clampedY: " + clampedY,
       //);
-      setImagePosition({ x: clampedX, y: clampedY });
+      const nextPos = { x: clampedX, y: clampedY };
+      imagePositionRef.current = nextPos;
+      setImagePosition(nextPos);
     };
 
     const endDrag = (clientX: number, clientY: number) => {
