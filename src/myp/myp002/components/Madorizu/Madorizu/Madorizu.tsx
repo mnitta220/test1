@@ -77,35 +77,6 @@ function touchDistance(touches: TouchList): number {
   return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
 }
 
-/**
- * タップ位置をマーカー用の % に変換する。
- * image-container の getBoundingClientRect() は、pan 中に ref が先に更新され DOM の transform
- * が1フレーム遅れると実際の pan とずれるため使わない。
- *
- * CSS: left/top 50% のあと transform は左→右で適用（MDN）→ translate(-50%,-50%) で親中心に合わせ、
- * 続く translate(pan) で移動。よって表示上の中心 ≈ 外枠の中心 + pan。
- */
-function viewportToMarkerPercent(
-  clientX: number,
-  clientY: number,
-  outer: DOMRectReadOnly,
-  zoom: number,
-  pan: Position,
-): { x: number; y: number } | null {
-  const ow = outer.width;
-  const oh = outer.height;
-  if (ow <= 0 || oh <= 0 || zoom <= 0) return null;
-  const iw = ow * zoom;
-  const ih = oh * zoom;
-  const centerX = outer.left + ow / 2 + pan.x;
-  const centerY = outer.top + oh / 2 + pan.y;
-  const left = centerX - iw / 2;
-  const top = centerY - ih / 2;
-  const x = ((clientX - left) / iw) * 100;
-  const y = ((clientY - top) / ih) * 100;
-  return { x, y };
-}
-
 const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
   (
     {
@@ -140,10 +111,8 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       x: 0,
       y: 0,
     });
-    const imagePositionRef = useSyncRef<Position>({
-      x: 0,
-      y: 0,
-    });
+    // 必ず state の imagePosition を渡す（{ x:0, y:0 } 固定にすると毎レンダー後に ref が 0 に戻りパンが無効化される）
+    const imagePositionRef = useSyncRef<Position>(imagePosition);
 
     const [containerSize, setContainerSize] = useState<Size>({
       width: 0,
@@ -535,21 +504,24 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         return;
       }
 
-      const outerRect = divRef.current?.getBoundingClientRect();
-      const z = zoomLevelRef.current;
-      const pan = imagePositionRef.current;
-      const pct =
-        outerRect && markers.length < MAX_MARKERS && isMarkable
-          ? viewportToMarkerPercent(startPos.x, startPos.y, outerRect, z, pan)
-          : null;
-
-      if (markers.length >= MAX_MARKERS || !isMarkable || !pct) {
+      const ic = imageContainerRef.current;
+      const imageRect = ic?.getBoundingClientRect();
+      if (markers.length >= MAX_MARKERS || !isMarkable || !imageRect) {
         if (onImageClick) onImageClick();
         dragStartPositionRef.current = null;
         return;
       }
 
-      const { x, y } = pct;
+      if (imageRect.width <= 0 || imageRect.height <= 0) {
+        dragStartPositionRef.current = null;
+        return;
+      }
+
+      // 押下座標（タップ判定も start と end の差で実施済み）
+      const placeX = startPos.x;
+      const placeY = startPos.y;
+      const x = ((placeX - imageRect.left) / imageRect.width) * 100;
+      const y = ((placeY - imageRect.top) / imageRect.height) * 100;
       const clampedX = Math.max(0, Math.min(100, x));
       const clampedY = Math.max(0, Math.min(100, y));
 
