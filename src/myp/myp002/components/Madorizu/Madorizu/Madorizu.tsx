@@ -15,6 +15,8 @@ interface MadorizuProps {
   markers: MarkerInfo[];
   onMarkerAdd: (x: number, y: number) => void;
   onMarkersChange: (markers: MarkerInfo[]) => void;
+  // 親での追加制御や削除誘発のため、画像以外の要素クリックを受け取れるよう汎用化
+  onImageClick?: () => void;
 }
 
 /**
@@ -43,7 +45,17 @@ function touchDistance(touches: TouchList): number {
 }
 
 const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
-  ({ isMarkable, imageData, markers, onMarkerAdd, onMarkersChange }, ref) => {
+  (
+    {
+      isMarkable,
+      imageData,
+      markers,
+      onMarkerAdd,
+      onMarkersChange,
+      onImageClick,
+    },
+    ref,
+  ) => {
     const [showPlusButton, setShowPlusButton] = useState(true);
     const divRef = useRef<HTMLDivElement | null>(null);
     const imageContainerRef = useRef<HTMLDivElement | null>(null);
@@ -481,6 +493,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       // 外側コンテナではなく image-container 基準（ズーム・パン後の実表示領域と一致）
       const imageRect = imageContainerRef.current?.getBoundingClientRect();
       if (markers.length >= 20 || !isMarkable || !imageRect) {
+        if (onImageClick) onImageClick();
         dragStartPositionRef.current = null;
         return;
       }

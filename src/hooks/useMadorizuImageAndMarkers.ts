@@ -17,6 +17,7 @@ export function useMadorizuImageAndMarkers(imageUrl: string) {
     let cancelled = false;
     void (async () => {
       const data = await fetchImageAsDataUrl(imageUrl);
+      console.log("画像データURLが読み込まれました:", data);
       if (!cancelled) setImageData(data);
     })();
     return () => {
@@ -25,10 +26,7 @@ export function useMadorizuImageAndMarkers(imageUrl: string) {
   }, [imageUrl]);
 
   const handleMarkerAdd = useCallback((x: number, y: number) => {
-    setMarkers((prev) => [
-      ...prev,
-      { id: prev.length + 1, x, y },
-    ]);
+    setMarkers((prev) => [...prev, { id: prev.length + 1, x, y }]);
   }, []);
 
   const removeMarkerById = useCallback((markerId: number) => {
