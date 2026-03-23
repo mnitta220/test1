@@ -1,12 +1,12 @@
-import { useState } from "react";
+//import { useState } from "react";
 import "./App.css";
 import Madorizu from "./myp/myp002/components/Madorizu/Madorizu/Madorizu";
 import { useMadorizuImageAndMarkers } from "./hooks/useMadorizuImageAndMarkers";
 import { MarkerListPanel } from "./components/MarkerListPanel/MarkerListPanel";
-import { LoginForm } from "./components/LoginForm/LoginForm";
+//import { LoginForm } from "./components/LoginForm/LoginForm";
 
 function App() {
-  const [loggedIn, setLoggedIn] = useState(false);
+  //const [loggedIn, setLoggedIn] = useState(false);
   const {
     imageData,
     markers,
