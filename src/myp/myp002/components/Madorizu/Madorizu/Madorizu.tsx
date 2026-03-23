@@ -518,8 +518,17 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         return;
       }
 
-      const x = ((clientX - imageRect.left) / imageRect.width) * 100;
-      const y = ((clientY - imageRect.top) / imageRect.height) * 100;
+      if (imageRect.width <= 0 || imageRect.height <= 0) {
+        dragStartPositionRef.current = null;
+        return;
+      }
+
+      // タップと判定したら「押下時」の座標で配置する（指を離す touchend の client 座標は
+      // 特にピンチ操作のあと環境によってずれることがあるため）
+      const placeX = startPos.x;
+      const placeY = startPos.y;
+      const x = ((placeX - imageRect.left) / imageRect.width) * 100;
+      const y = ((placeY - imageRect.top) / imageRect.height) * 100;
       // 有効な範囲内に制限
       const clampedX = Math.max(0, Math.min(100, x));
       const clampedY = Math.max(0, Math.min(100, y));
