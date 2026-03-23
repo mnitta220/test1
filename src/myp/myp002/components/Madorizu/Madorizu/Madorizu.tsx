@@ -78,10 +78,12 @@ function touchDistance(touches: TouchList): number {
 }
 
 /**
- * 外枠（.madorizu-container）の矩形と zoom / pan から、ビューポート座標をマーカー用の % に変換する。
- * image-container の getBoundingClientRect() は複合 transform 後に端末でレイアウトとずれることがあるため使わない。
+ * タップ位置をマーカー用の % に変換する。
+ * image-container の getBoundingClientRect() は、pan 中に ref が先に更新され DOM の transform
+ * が1フレーム遅れると実際の pan とずれるため使わない。
  *
- * レイアウト: left/top 50% + translate(-50%,-50%) で親中心に合わせた後、translate(pan) で平行移動。
+ * CSS: left/top 50% のあと transform は左→右で適用（MDN）→ translate(-50%,-50%) で親中心に合わせ、
+ * 続く translate(pan) で移動。よって表示上の中心 ≈ 外枠の中心 + pan。
  */
 function viewportToMarkerPercent(
   clientX: number,
@@ -533,7 +535,6 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         return;
       }
 
-      // ズーム・パン後もレイアウトと一致するよう、外枠矩形 + ref の zoom/pan から % を算出
       const outerRect = divRef.current?.getBoundingClientRect();
       const z = zoomLevelRef.current;
       const pan = imagePositionRef.current;
@@ -588,6 +589,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
           className="image-container"
           role="img"
           style={{
+            /* MDN: transform は左から右へ適用 → 先に中央寄せ、次にパン */
             transform: `translate(-50%, -50%) translate(${imagePosition.x}px, ${imagePosition.y}px)`,
             /* stylelint-disable-next-line value-keyword-case -- CSS-in-JS での JS 変数名は小文字化しない */
             width: `${100 * zoomLevel}%`,
