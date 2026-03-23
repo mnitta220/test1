@@ -77,6 +77,33 @@ function touchDistance(touches: TouchList): number {
   return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
 }
 
+/**
+ * 外枠（.madorizu-container）の矩形と zoom / pan から、ビューポート座標をマーカー用の % に変換する。
+ * image-container の getBoundingClientRect() は複合 transform 後に端末でレイアウトとずれることがあるため使わない。
+ *
+ * レイアウト: left/top 50% + translate(-50%,-50%) で親中心に合わせた後、translate(pan) で平行移動。
+ */
+function viewportToMarkerPercent(
+  clientX: number,
+  clientY: number,
+  outer: DOMRectReadOnly,
+  zoom: number,
+  pan: Position,
+): { x: number; y: number } | null {
+  const ow = outer.width;
+  const oh = outer.height;
+  if (ow <= 0 || oh <= 0 || zoom <= 0) return null;
+  const iw = ow * zoom;
+  const ih = oh * zoom;
+  const centerX = outer.left + ow / 2 + pan.x;
+  const centerY = outer.top + oh / 2 + pan.y;
+  const left = centerX - iw / 2;
+  const top = centerY - ih / 2;
+  const x = ((clientX - left) / iw) * 100;
+  const y = ((clientY - top) / ih) * 100;
+  return { x, y };
+}
+
 const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
   (
     {
@@ -116,14 +143,11 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       y: 0,
     });
 
-    const [, setContainerSize] = useState<Size>({
+    const [containerSize, setContainerSize] = useState<Size>({
       width: 0,
       height: 0,
     });
-    const containerSizeRef = useSyncRef<Size>({
-      width: 0,
-      height: 0,
-    });
+    const containerSizeRef = useSyncRef<Size>(containerSize);
 
     const dragStartPositionRef = useRef<Position | null>(null);
 
@@ -509,27 +533,22 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         return;
       }
 
-      // 追加条件1: 既に最大数の場合は親ハンドラに委譲（警告表示等）
-      // 外側コンテナではなく image-container 基準（ズーム・パン後の実表示領域と一致）
-      const imageRect = imageContainerRef.current?.getBoundingClientRect();
-      if (markers.length >= MAX_MARKERS || !isMarkable || !imageRect) {
+      // ズーム・パン後もレイアウトと一致するよう、外枠矩形 + ref の zoom/pan から % を算出
+      const outerRect = divRef.current?.getBoundingClientRect();
+      const z = zoomLevelRef.current;
+      const pan = imagePositionRef.current;
+      const pct =
+        outerRect && markers.length < MAX_MARKERS && isMarkable
+          ? viewportToMarkerPercent(startPos.x, startPos.y, outerRect, z, pan)
+          : null;
+
+      if (markers.length >= MAX_MARKERS || !isMarkable || !pct) {
         if (onImageClick) onImageClick();
         dragStartPositionRef.current = null;
         return;
       }
 
-      if (imageRect.width <= 0 || imageRect.height <= 0) {
-        dragStartPositionRef.current = null;
-        return;
-      }
-
-      // タップと判定したら「押下時」の座標で配置する（指を離す touchend の client 座標は
-      // 特にピンチ操作のあと環境によってずれることがあるため）
-      const placeX = startPos.x;
-      const placeY = startPos.y;
-      const x = ((placeX - imageRect.left) / imageRect.width) * 100;
-      const y = ((placeY - imageRect.top) / imageRect.height) * 100;
-      // 有効な範囲内に制限
+      const { x, y } = pct;
       const clampedX = Math.max(0, Math.min(100, x));
       const clampedY = Math.max(0, Math.min(100, y));
 
