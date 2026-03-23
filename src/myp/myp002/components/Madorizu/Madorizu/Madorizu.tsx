@@ -8,6 +8,18 @@ import {
 import MadorizuMarker from "../MadorizuMarker/MadorizuMarker";
 import "./Madorizu.css";
 
+/**
+ * StateをRefに同期するカスタムフック
+ * 複数のState-Ref同期パターンを統一（重複排除）
+ */
+function useSyncRef<T>(value: T) {
+  const ref = useRef(value);
+  useEffect(() => {
+    ref.current = value;
+  }, [value]);
+  return ref;
+}
+
 /* c8 ignore start - 型宣言は実行時コードに変換されずカバレッジ対象外とする */
 interface MadorizuProps {
   isMarkable: boolean;
@@ -28,6 +40,22 @@ export interface MarkerInfo {
   y: number; // y座標(%)
 }
 
+/**
+ * 2次元座標を表す型
+ */
+export interface Position {
+  x: number;
+  y: number;
+}
+
+/**
+ * 2次元サイズを表す型
+ */
+export interface Size {
+  width: number;
+  height: number;
+}
+
 export interface MadorizuRef {
   addMarker: (x: number, y: number) => void;
   removeMarker: (markerId: number) => void;
@@ -36,6 +64,11 @@ export interface MadorizuRef {
 
 const MIN_PINCH_ZOOM = 1;
 const MAX_PINCH_ZOOM = 6;
+const PINCH_DISTANCE_THRESHOLD = 10; // ピンチジェスチャーとして認識する最小距離（px）
+const MAX_MARKERS = 20; // マーカーの最大数
+const DRAG_THRESHOLD = 10; // ドラッグと判定する最小距離（px）
+const ZOOM_LEVEL_ZOOMED = 2; // ズームイン時のズームレベル
+const ZOOM_BUTTON_THRESHOLD = 1.01; // プラスボタン表示判定のズームレベル閾値
 
 function touchDistance(touches: TouchList): number {
   if (touches.length < 2) return 0;
@@ -63,48 +96,36 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     const minusButtonRef = useRef<HTMLButtonElement | null>(null);
 
     const [imageWidth, setImageWidth] = useState(0);
-    const imageWidthRef = useRef(imageWidth);
-    useEffect(() => {
-      imageWidthRef.current = imageWidth;
-    }, [imageWidth]);
+    const imageWidthRef = useSyncRef(imageWidth);
 
     const [imageHeight, setImageHeight] = useState(0);
-    const imageHeightRef = useRef(imageHeight);
-    useEffect(() => {
-      imageHeightRef.current = imageHeight;
-    }, [imageHeight]);
+    const imageHeightRef = useSyncRef(imageHeight);
 
     const [zoomLevel, setZoomLevel] = useState(1);
-    const zoomLevelRef = useRef(zoomLevel);
-    useEffect(() => {
-      zoomLevelRef.current = zoomLevel;
-    }, [zoomLevel]);
+    const zoomLevelRef = useSyncRef(zoomLevel);
 
     const isDraggingRef = useRef(false);
-    const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+    const dragOffsetRef = useRef<Position>({ x: 0, y: 0 });
 
-    const [imagePosition, setImagePosition] = useState<{
-      x: number;
-      y: number;
-    }>({ x: 0, y: 0 });
-    const imagePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-    useEffect(() => {
-      imagePositionRef.current = imagePosition;
-    }, [imagePosition]);
+    const [imagePosition, setImagePosition] = useState<Position>({
+      x: 0,
+      y: 0,
+    });
+    const imagePositionRef = useSyncRef<Position>({
+      x: 0,
+      y: 0,
+    });
 
-    const [containerSize, setContainerSize] = useState<{
-      width: number;
-      height: number;
-    }>({ width: 0, height: 0 });
-    const containerSizeRef = useRef(containerSize);
-    useEffect(() => {
-      containerSizeRef.current = containerSize;
-    }, [containerSize]);
+    const [, setContainerSize] = useState<Size>({
+      width: 0,
+      height: 0,
+    });
+    const containerSizeRef = useSyncRef<Size>({
+      width: 0,
+      height: 0,
+    });
 
-    const dragStartPositionRef = useRef<{
-      x: number;
-      y: number;
-    } | null>(null);
+    const dragStartPositionRef = useRef<Position | null>(null);
 
     /** 2 本指ピンチの初期距離と開始時ズーム */
     const pinchRef = useRef<{ d0: number; z0: number } | null>(null);
@@ -115,10 +136,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       beginDrag: (x: number, y: number) => void;
       updateDrag: (x: number, y: number) => void;
       endDrag: (x: number, y: number) => void;
-      clampImagePosition: (
-        zl: number,
-        pos: { x: number; y: number },
-      ) => { x: number; y: number };
+      clampImagePosition: (zl: number, pos: Position) => Position;
     };
 
     const interactionRef = useRef<InteractionApi>({
@@ -132,6 +150,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     const CONTAINER_ID = "madorizu-container-root";
     const IMAGE_ID = "madorizu-image";
 
+    // 外部からマーカーを削除する関数
     const removeMarker = (markerId: number) => {
       const filteredMarkers = markers.filter(
         (marker) => marker.id !== markerId,
@@ -144,6 +163,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       onMarkersChange(renumberedMarkers);
     };
 
+    // 親コンポーネントにaddMarker, removeMarker関数を公開
     useImperativeHandle(ref, () => ({
       addMarker: onMarkerAdd,
       removeMarker,
@@ -195,8 +215,8 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         e.stopPropagation();
         e.stopImmediatePropagation();
         setShowPlusButton(false);
-        zoomLevelRef.current = 2;
-        setZoomLevel(2);
+        zoomLevelRef.current = ZOOM_LEVEL_ZOOMED;
+        setZoomLevel(ZOOM_LEVEL_ZOOMED);
         imagePositionRef.current = { x: 0, y: 0 };
         setImagePosition({ x: 0, y: 0 });
       };
@@ -212,8 +232,8 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         e.stopPropagation();
         e.stopImmediatePropagation();
         setShowPlusButton(false);
-        zoomLevelRef.current = 2;
-        setZoomLevel(2);
+        zoomLevelRef.current = ZOOM_LEVEL_ZOOMED;
+        setZoomLevel(ZOOM_LEVEL_ZOOMED);
         imagePositionRef.current = { x: 0, y: 0 };
         setImagePosition({ x: 0, y: 0 });
       };
@@ -288,7 +308,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       };
     }, []);
 
-    const clampImagePosition = (zl: number, pos: { x: number; y: number }) => {
+    const clampImagePosition = (zl: number, pos: Position): Position => {
       const cw = containerSizeRef.current.width;
       const ch = containerSizeRef.current.height;
       const iw = imageWidthRef.current;
@@ -309,10 +329,10 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
     // Pointer イベントに統合（mouse/touch 両対応）
     const beginDrag = (clientX: number, clientY: number) => {
       isDraggingRef.current = true;
-      const nextStart = { x: clientX, y: clientY };
+      const nextStart: Position = { x: clientX, y: clientY };
       dragStartPositionRef.current = nextStart;
       const pos = imagePositionRef.current;
-      const nextOffset = {
+      const nextOffset: Position = {
         x: clientX - pos.x,
         y: clientY - pos.y,
       };
@@ -373,12 +393,12 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         if (e.cancelable) {
           e.preventDefault();
         }
-        if (e.touches.length >= 2) {
+        if (e.touches.length > 1) {
           pinchGestureUsedRef.current = true;
           isDraggingRef.current = false;
           dragStartPositionRef.current = null;
           const d0 = touchDistance(e.touches);
-          if (d0 > 10) {
+          if (d0 > PINCH_DISTANCE_THRESHOLD) {
             pinchRef.current = {
               d0,
               z0: zoomLevelRef.current,
@@ -401,14 +421,14 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
           }
           pinchGestureUsedRef.current = true;
           const p = pinchRef.current;
-          if (!p || p.d0 < 10) return;
+          if (!p || p.d0 < PINCH_DISTANCE_THRESHOLD) return;
           const d = touchDistance(e.touches);
           if (d < 1) return;
           const rawZ = p.z0 * (d / p.d0);
           const newZ = Math.min(MAX_PINCH_ZOOM, Math.max(MIN_PINCH_ZOOM, rawZ));
           zoomLevelRef.current = newZ;
           setZoomLevel(newZ);
-          setShowPlusButton(newZ <= 1.01);
+          setShowPlusButton(newZ <= ZOOM_BUTTON_THRESHOLD);
           const pos = imagePositionRef.current;
           const clamped = interactionRef.current.clampImagePosition(newZ, pos);
           imagePositionRef.current = clamped;
@@ -435,7 +455,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
           e.stopImmediatePropagation();
         }
 
-        if (e.touches.length >= 2) {
+        if (e.touches.length > 1) {
           return;
         }
         if (e.touches.length === 1) {
@@ -483,8 +503,8 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       const deltaX = Math.abs(clientX - startPos.x);
       const deltaY = Math.abs(clientY - startPos.y);
 
-      // X座標またはY座標の差が10px以上の場合はマーカーを追加しない
-      if (deltaX >= 10 || deltaY >= 10) {
+      // X座標またはY座標の差がDRAG_THRESHOLD以上の場合はマーカーを追加しない
+      if (deltaX >= DRAG_THRESHOLD || deltaY >= DRAG_THRESHOLD) {
         dragStartPositionRef.current = null;
         return;
       }
@@ -492,7 +512,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
       // 追加条件1: 既に最大数の場合は親ハンドラに委譲（警告表示等）
       // 外側コンテナではなく image-container 基準（ズーム・パン後の実表示領域と一致）
       const imageRect = imageContainerRef.current?.getBoundingClientRect();
-      if (markers.length >= 20 || !isMarkable || !imageRect) {
+      if (markers.length >= MAX_MARKERS || !isMarkable || !imageRect) {
         if (onImageClick) onImageClick();
         dragStartPositionRef.current = null;
         return;
@@ -538,6 +558,7 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
         <div
           ref={imageContainerRef}
           className="image-container"
+          role="img"
           style={{
             transform: `translate(-50%, -50%) translate(${imagePosition.x}px, ${imagePosition.y}px)`,
             /* stylelint-disable-next-line value-keyword-case -- CSS-in-JS での JS 変数名は小文字化しない */
@@ -575,16 +596,18 @@ const Madorizu = forwardRef<MadorizuRef, MadorizuProps>(
             className="zoom-button"
             ref={plusButtonRef}
             style={{ display: showPlusButton ? "block" : "none" }}
+            aria-pressed={!showPlusButton}
           >
-            <img src="zoomIn.svg" alt="ズームイン" />
+            <img src="/images/zoomIn.svg" alt="ズームイン" />
           </button>
           <button
             type="button"
             className="zoom-button"
             ref={minusButtonRef}
             style={{ display: showPlusButton ? "none" : "block" }}
+            aria-pressed={showPlusButton}
           >
-            <img src="zoomOut.svg" alt="ズームアウト" />
+            <img src="/images/zoomOut.svg" alt="ズームアウト" />
           </button>
         </div>
       </div>

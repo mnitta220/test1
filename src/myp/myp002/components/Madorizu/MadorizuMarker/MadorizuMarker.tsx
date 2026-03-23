@@ -5,6 +5,9 @@ interface MadorizuMarkerProps {
   info: MarkerInfo;
 }
 
+/**
+ * 間取図上のマーカーコンポーネント
+ */
 function MadorizuMarker({ info }: MadorizuMarkerProps) {
   return (
     <div
@@ -14,7 +17,9 @@ function MadorizuMarker({ info }: MadorizuMarkerProps) {
         top: `${info.y}%`,
       }}
     >
-      <div className="marker-num">{info.id}</div>
+      <div className="marker-num" id={`marker-desc-${info.id}`}>
+        {info.id}
+      </div>
     </div>
   );
 }
