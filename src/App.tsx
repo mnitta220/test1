@@ -16,9 +16,9 @@ function App() {
     removeMarkerById,
   } = useMadorizuImageAndMarkers("madorizu.gif");
 
-  if (!loggedIn) {
-    return <LoginForm onSuccess={() => setLoggedIn(true)} />;
-  }
+  //if (!loggedIn) {
+  //  return <LoginForm onSuccess={() => setLoggedIn(true)} />;
+  //}
 
   return (
     <>
